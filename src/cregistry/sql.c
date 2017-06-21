@@ -211,7 +211,7 @@ int create_tables(sqlite3* db, reg_error* errPtr) {
             ", port_name TEXT COLLATE NOCASE"
             ", requested INTEGER"
             ", FOREIGN KEY(id) REFERENCES snapshots(id))",
-        "CREATE INDEX registry.snapshot_ports ON snapshot_ports"
+        "CREATE INDEX registry.snapshot_port ON snapshot_ports"
             "(id, port_name)",
 
         /* snapshot port variants table */
@@ -221,7 +221,7 @@ int create_tables(sqlite3* db, reg_error* errPtr) {
             ", variant_name TEXT COLLATE NOCASE"
             ", variant_sign TEXT"
             ", FOREIGN KEY(id) REFERENCES snapshot_ports(id))",
-        "CREATE INDEX registry.snapshot_port_variants ON snapshot_port_variants(id)",
+        "CREATE INDEX registry.snapshot_port_variant ON snapshot_port_variants(id)",
 
         "COMMIT",
         NULL
@@ -756,7 +756,7 @@ int update_db(sqlite3* db, reg_error* errPtr) {
                     ", requested INTEGER"
                     ", FOREIGN KEY(id) REFERENCES snapshots(id))",
 
-                "CREATE INDEX registry.snapshot_ports ON snapshot_ports"
+                "CREATE INDEX registry.snapshot_port ON snapshot_ports"
                     "(id, port_name)",
 
                 /* snapshot port variants table */
@@ -766,7 +766,7 @@ int update_db(sqlite3* db, reg_error* errPtr) {
                     ", variant_sign TEXT"
                     ", FOREIGN KEY(id) REFERENCES snapshot_ports(id))",
 
-                "CREATE INDEX registry.snapshot_port_variants ON snapshot_port_variants(id)",
+                "CREATE INDEX registry.snapshot_port_variant ON snapshot_port_variants(id)",
 
                 /* Update version and commit */
                 "UPDATE registry.metadata SET value = '1.205' WHERE key = 'version'",
