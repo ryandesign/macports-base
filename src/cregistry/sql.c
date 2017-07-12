@@ -211,6 +211,7 @@ int create_tables(sqlite3* db, reg_error* errPtr) {
             ", snapshots_id INTEGER"
             ", port_name TEXT COLLATE NOCASE"
             ", requested INTEGER"
+            ", state TEXT COLLATE NOCASE"
             ", FOREIGN KEY(snapshots_id) REFERENCES snapshots(id)"
             " ON DELETE CASCADE"
             ")",
@@ -761,6 +762,7 @@ int update_db(sqlite3* db, reg_error* errPtr) {
                     ", snapshots_id INTEGER"
                     ", port_name TEXT COLLATE NOCASE"
                     ", requested INTEGER"
+                    ", state TEXT COLLATE NOCASE"
                     ", FOREIGN KEY(snapshots_id) REFERENCES snapshots(id)"
                     " ON DELETE CASCADE"
                     ")",
