@@ -2831,6 +2831,11 @@ proc action_snapshot { action portlist opts} {
 	return 0
 }
 
+proc action_reclaim { action portlist opts} {
+    macports::reclaim_main $opts
+    return 0
+}
+
 proc action_upgrade { action portlist opts } {
     if {[require_portlist portlist "yes"] || (![macports::global_option_isset ports_dryrun] && [prefix_unwritable])} {
         return 1
@@ -4375,6 +4380,7 @@ array set action_array [list \
     pkg         [list action_target         [ACTION_ARGS_PORTS]] \
     \
     snapshot    [list action_snapshot       [ACTION_ARGS_STRINGS]] \
+    restore     [list action_restore        [ACTION_ARGS_STRINGS]] \
     \
     quit        [list action_exit           [ACTION_ARGS_NONE]] \
     exit        [list action_exit           [ACTION_ARGS_NONE]] \
@@ -4472,6 +4478,7 @@ array set cmd_opts_array {
     diagnose    {quiet}
     reclaim     {enable-reminders disable-reminders}
     fetch       {no-mirrors}
+    restore     {snapshot-id}
 }
 
 ##
