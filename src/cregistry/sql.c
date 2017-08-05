@@ -202,7 +202,6 @@ int create_tables(sqlite3* db, reg_error* errPtr) {
             ", created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL"
             ", note TEXT"
             ")",
-        "CREATE INDEX registry.snapshot ON snapshots(id)",
 
         /* snapshot ports table */
         /* a complete copy of all the installed ports for a snapshot */
@@ -215,8 +214,6 @@ int create_tables(sqlite3* db, reg_error* errPtr) {
             ", FOREIGN KEY(snapshots_id) REFERENCES snapshots(id)"
             " ON DELETE CASCADE"
             ")",
-        "CREATE INDEX registry.snapshot_port ON snapshot_ports"
-            "(id, port_name)",
 
         /* snapshot port variants table */
         /* all variants (+, -) of the ports in a snapshot */
@@ -228,7 +225,6 @@ int create_tables(sqlite3* db, reg_error* errPtr) {
             ", FOREIGN KEY(snapshot_ports_id) REFERENCES snapshot_ports(id)"
             " ON DELETE CASCADE"
             ")",
-        "CREATE INDEX registry.snapshot_port_variant ON snapshot_port_variants(id)",
 
         "COMMIT",
         NULL
@@ -767,9 +763,6 @@ int update_db(sqlite3* db, reg_error* errPtr) {
                     " ON DELETE CASCADE"
                     ")",
 
-                "CREATE INDEX registry.snapshot_port ON snapshot_ports"
-                    "(id, port_name)",
-
                 /* snapshot port variants table */
                 "CREATE TABLE registry.snapshot_port_variants ("
                       "id INTEGER PRIMARY KEY"
@@ -779,8 +772,6 @@ int update_db(sqlite3* db, reg_error* errPtr) {
                     ", FOREIGN KEY(snapshot_ports_id) REFERENCES snapshot_ports(id)"
                     " ON DELETE CASCADE"
                     ")",
-
-                "CREATE INDEX registry.snapshot_port_variant ON snapshot_port_variants(id)",
 
                 /* Update version and commit */
                 "UPDATE registry.metadata SET value = '1.205' WHERE key = 'version'",
