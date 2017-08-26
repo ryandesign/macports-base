@@ -4500,7 +4500,7 @@ proc macports::snapshot_main {opts} {
     # Calls the main function for the 'port snapshot' command.
     #
     # Args:
-    #           None
+    #           $opts having a 'note'
     # Returns:
     #           0 on successful execution.
 
