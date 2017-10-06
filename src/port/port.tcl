@@ -2827,7 +2827,11 @@ proc action_reclaim { action portlist opts } {
 }
 
 proc action_snapshot { action portlist opts } {
-	return [macports::snapshot_main $opts]
+    if {[catch {macports::snapshot_main $opts} result]} {
+        ui_debug $::errorInfo
+        return 1
+    }
+	return 0
 }
 
 proc action_restore { action portlist opts } {
@@ -4482,7 +4486,7 @@ array set cmd_opts_array {
     reclaim     {enable-reminders disable-reminders}
     fetch       {no-mirrors}
     snapshot    {{note 1}}
-    restore     {{snapshot-id 1}}
+    restore     {{snapshot-id 1} last}
 }
 
 ##
