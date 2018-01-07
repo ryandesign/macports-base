@@ -569,6 +569,8 @@ proc macports::_is_valid_developer_dir {dir} {
 #         and minor versions, the OS platform, the OS endianess, and the macOS
 #         version (empty on non-macOS systems)
 proc macports::_get_os_version {} {
+    global tcl_platform
+
     # set up platform info variables
     set os_arch $tcl_platform(machine)
     if {$os_arch eq "Power Macintosh"} {
@@ -628,7 +630,7 @@ proc mportinit {{up_ui_options {}} {up_options {}} {up_variations {}}} {
     package require registry2 2.0
     package require machista 1.0
 
-    global auto_path env tcl_platform \
+    global auto_path env \
         macports::autoconf::macports_conf_path \
         macports::macports_user_dir \
         macports::bootstrap_options \
