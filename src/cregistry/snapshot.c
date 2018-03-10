@@ -464,20 +464,26 @@ int reg_snapshot_ports_get(reg_snapshot* snapshot, port*** ports, reg_error* err
 
                     char* variantstr = NULL;
                     if (current_port->variant_count > 0) {
-                        int j;
-                        variantstr = NULL;
                         // construct the variant string in the form '+var1-var2+var3'
-                        for(j = 0; j < current_port->variant_count; j++) {
-                            if (asprintf(&variantstr, "%s%s",
-                                    (*variants)[j].variant_sign,
-                                    (*variants)[j].variant_name) < 0) {
-                                return -1;
-                            }
+                        size_t variantstrlen = 0;
+                        for (int j = 0; j < current_port->variant_count; ++j) {
+                            variantstrlen += strlen(variants[j]->variant_sign);
+                            variantstrlen += strlen(variants[j]->variant_name);
                         }
-                        current_port->variants = strdup(variantstr);
-                        free(variantstr);
+
+                        // +1 for \0
+                        variantstr = malloc(variantstrlen + 1);
+                        if (!variantstr) {
+                            return -1;
+                        }
+                        variantstr[0] = '\0';
+                        for (int j = 0; j < current_port->variant_count; ++j) {
+                            strcat(variantstr, variants[j]->variant_sign);
+                            strcat(variantstr, variants[j]->variant_name);
+                        }
+                        current_port->variants = variantstr;
                     } else {
-                        current_port->variants = "\0";
+                        current_port->variants = strdup("\0");
                     }
 
                     if (!reg_listcat((void***)&result, &result_count, &result_space, current_port)) {
