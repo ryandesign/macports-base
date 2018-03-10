@@ -22,6 +22,8 @@ before_deploy:
 - sed -i "" "s/OS_MAJOR/$OS_MAJOR/g" .bintray.json
 - sudo mv /opt/local.old/* /usr/local && hash -r
 deploy:
+  edge:
+    branch: v1.8.47
   provider: bintray
   file: .bintray.json
   user: l2dybot
@@ -29,4 +31,4 @@ deploy:
   on:
     branch: travis-ci
   key:
-    secure: bV7Y2Ti+DOlGfXa93mx383cozKcC8ut4L0YCcSVCFY4cmHb9yBiHh1e4z5p7DY+yqbzXABvtalEKaQeWhOPrAle16SNh9OHlJx6EO0dcwmIS1lxPuTYQ6mGbuA7W278G7xxWgDSynL8Rdj/xGrT8JR7jXST2aghI6dnTpcu6unowZd30AnLRp/U6VjUbPKsXUCGg/ISZTudWMJhr11wmORETlICW9lvr8iPOSPNewC/tdCj3LfY1sT7FOsUZ+CpZk3Ivi8fem4CwL3EwP1WdqScqGwO5xTplSmL/vugxBipHDknm7bP1XFb6Yi7jNsKETuV4FlFZ1oOSrkOwS+M8hOuMyQB/PYkDld86P3VSkhF/h4HZi5b/nXUTNl9021G71GoxwgKrYaorfOAf4EqgnTtHnv6GMBXFTzjhdNOv5i5Ru+P3vIFh6Pa421avIhIg3nWUfoSgnCMRekyqQZf277rmiDb7BWBRs37AGGJyYtyezVab4/30Azp7QmbcGEI9TSJGt6B5JAM5v00WMUJ8OLnfdMoCyccKA5SRhoS/SKuZliQ0y8s02+3OEP1lNTGlr2snLcHdukPeqVCquUOSCypB9SP3sleQ2Cb/uTvxHP9bnNFr2i43V+kSIP8i0yh47qZ2c0TvsrUcwAqHWcV7SliWH6Em9CjcBA9yiQo0Nc4=
+    secure: dWLG/p4xr4YOP1cyPqe+ANWnKm42CPp2fIWjFbWdyew84VTdetrB+P4ZfVeS7dSeasHL6B0D+aQWbrLA7bBQsNv6+2QemTxoKvj+qIdCyqk4DiG6hjjYPcnrHexjcNx5yFVROVuCXJtT/dbqGWA7GG1YRqokUse6cO20Kft2SG8qYVuWmMqALYAUdJO4p8ZMPpVudzP55K85X7yab66/ahdLo4135YWKfu5aMwNdIIzq5z0fgkWTUXre6qhM9FpJ/bmyUDBtimNK9yy8ruq4uYqG9HtRbMU31R6mTgtNWhdV3brcxWwoNRSojlnmJohC7eq2YPA4SZEuL0z5u9TDctyoIBSi9QDvtVfoHTfLv7usTZMo8Vq86DOQW9meOznJjbZdmyo9LLNH4kXGMU0lF5JBWLuqcfeL1kPhdlpkxuUo0c93K7ZGTmbrhFwLgSr/yiaGYhzGPWwGMourPQyHfTuLmP2qZOcZXYUM9L1LEuHG/M6O9o4mWWWfwX8LYsi5jeW5W0N0oEzHvEjx3Xm7Xyw+0CtXWEKM6lnQMUundwR9lzoBgMlSRpNhqTUT+LvC0AHt4PfFaKdoVVlujxSLcihEpgHzaNxgeaU18fsj8ZSGanNIC+LATL/LHGe6tLdj95jEZABwrRlxjbZS81NgDMYiRJNCgXQs7iOWNCo5hhw=
