@@ -31,6 +31,7 @@
 package provide restore 1.0
 
 package require macports 1.0
+package require migrate 1.0
 package require registry 1.0
 package require snapshot 1.0
 
@@ -52,6 +53,11 @@ namespace eval restore {
         #           0 if success
 
         array set options $opts
+
+        if {[migrate::needs_migration]} {
+            ui_error "You need to run 'sudo port migrate' before running restore"
+            return 1
+        }
 
         if {[info exists options(ports_restore_snapshot-id)]} {
             # use the specified snapshot
