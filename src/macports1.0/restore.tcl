@@ -31,6 +31,7 @@
 package provide restore 1.0
 
 package require macports 1.0
+package require migrate 1.0
 package require registry 1.0
 package require snapshot 1.0
 
@@ -53,6 +54,11 @@ namespace eval restore {
 
         array set options $opts
 
+        if {[migrate::needs_migration]} {
+            ui_error "You need to run 'sudo port migrate' before running restore"
+            return 1
+        }
+
         if {[info exists options(ports_restore_snapshot-id)]} {
             # use the specified snapshot
             set snapshot [fetch_snapshot $options(ports_restore_snapshot-id)]
@@ -61,9 +67,19 @@ namespace eval restore {
         } elseif {[info exists options(ports_restore_last)]} {
             set snapshot [fetch_snapshot_last]
         } else {
-            set list [list_snapshots]
-            set retstring [$macports::ui_options(questions_singlechoice) "Select any one snapshot to restore:" "" $list]
-            set snapshot [lindex $list $retstring]
+            set snapshots [list_snapshots]
+            set human_readable_snapshots {}
+            foreach snapshot $snapshots {
+                lappend human_readable_snapshots "[$snapshot note], created at [$snapshot created_at] (ID: [$snapshot id])"
+            }
+
+            if {[llength $snapshots] == 0} {
+                ui_error "There are no snapshots to restore. You must run 'sudo port snapshot' first."
+                return 1
+            }
+
+            set retstring [$macports::ui_options(questions_singlechoice) "Select any one snapshot to restore:" "" $human_readable_snapshots]
+            set snapshot [lindex $snapshots $retstring]
 
             ui_msg "Deactivating all ports installed.."
             deactivate_all
@@ -274,12 +290,25 @@ namespace eval restore {
     }
 
     proc restore_state {snapshot_portlist} {
-        set sorted_snapshot_portlist [portlist_sort_dependencies_first $snapshot_portlist]
         ui_msg "Installing ports:"
-        foreach port $sorted_snapshot_portlist {
-            ui_msg "   $port"
+        set snapshot_portlist [lsort -index 0 -nocase $snapshot_portlist]
+
+        foreach port $snapshot_portlist {
+            # 0: port name
+            # 1: requested (0/1)
+            # 2: state (imaged/installed, i.e. inactive/active)
+            # 3: variants
+            if {[lindex $port 1] == 1} {
+                # Hide unrequested ports
+                if {[lindex $port 2] eq "installed"} {
+                    ui_msg "   [lindex $port 0] [lindex $port 3]"
+                } else {
+                    ui_msg "   [lindex $port 0] [lindex $port 3] (inactive)"
+                }
+            }
         }
 
+        set sorted_snapshot_portlist [portlist_sort_dependencies_first $snapshot_portlist]
         foreach port $sorted_snapshot_portlist {
 
             set name [string trim [lindex $port 0]]

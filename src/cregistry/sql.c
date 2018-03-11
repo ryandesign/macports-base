@@ -134,7 +134,7 @@ int create_tables(sqlite3* db, reg_error* errPtr) {
 
         /* metadata table */
         "CREATE TABLE registry.metadata (key UNIQUE, value)",
-        "INSERT INTO registry.metadata (key, value) VALUES ('version', '1.203')",
+        "INSERT INTO registry.metadata (key, value) VALUES ('version', '1.204')",
         "INSERT INTO registry.metadata (key, value) VALUES ('created', strftime('%s', 'now'))",
 
         /* ports table */
@@ -155,6 +155,8 @@ int create_tables(sqlite3* db, reg_error* errPtr) {
             ", requested INTEGER"
             ", os_platform TEXT"
             ", os_major INTEGER"
+            ", cxx_stdlib TEXT"
+            ", cxx_stdlib_overridden INTEGER"
             ", UNIQUE (name, epoch, version, revision, variants)"
             ")",
         "CREATE INDEX registry.port_name ON ports"
@@ -647,14 +649,101 @@ int update_db(sqlite3* db, reg_error* errPtr) {
         }
 
         if (sql_version(NULL, -1, version, -1, "1.204") < 0) {
-            /*
-             * SQLite doesn't support ALTER TABLE DROP CONSTRAINT or ALTER
-             * TABLE DROP COLUMN, so we're doing the manual way to remove
-             * UNIQUE(url, epoch, version, revision, variants) and the url
-             * column.
-             */
-
+            /* add */
             static char* version_1_204_queries[] = {
+#if SQLITE_VERSION_NUMBER >= 3002000
+                "ALTER TABLE registry.ports ADD COLUMN cxx_stdlib TEXT",
+                "ALTER TABLE registry.ports ADD COLUMN cxx_stdlib_overridden INTEGER",
+#else
+
+                /* Create a temporary table */
+                "CREATE TEMPORARY TABLE mp_ports_backup ("
+                "id INTEGER PRIMARY KEY"
+                ", name TEXT COLLATE NOCASE"
+                ", portfile TEXT"
+                ", location TEXT"
+                ", epoch INTEGER"
+                ", version TEXT COLLATE VERSION"
+                ", revision INTEGER"
+                ", variants TEXT"
+                ", negated_variants TEXT"
+                ", state TEXT"
+                ", date DATETIME"
+                ", installtype TEXT"
+                ", archs TEXT"
+                ", requested INTEGER"
+                ", os_platform TEXT"
+                ", os_major INTEGER"
+                ", UNIQUE (name, epoch, version, revision, variants)"
+                ")",
+
+                /* Copy all data into the temporary table */
+                "INSERT INTO mp_ports_backup SELECT id, name, portfile, location, epoch, "
+                    "version, revision, variants, negated_variants, state, date, installtype, "
+                    "archs, requested, os_platform, os_major FROM registry.ports",
+
+                /* Drop the original table and re-create it with the new structure */
+                "DROP TABLE registry.ports",
+                "CREATE TABLE registry.ports ("
+                "id INTEGER PRIMARY KEY"
+                ", name TEXT COLLATE NOCASE"
+                ", portfile TEXT"
+                ", location TEXT"
+                ", epoch INTEGER"
+                ", version TEXT COLLATE VERSION"
+                ", revision INTEGER"
+                ", variants TEXT"
+                ", negated_variants TEXT"
+                ", state TEXT"
+                ", date DATETIME"
+                ", installtype TEXT"
+                ", archs TEXT"
+                ", requested INTEGER"
+                ", os_platform TEXT"
+                ", os_major INTEGER"
+                ", cxx_stdlib TEXT"
+                ", cxx_stdlib_overridden INTEGER"
+                ", UNIQUE (name, epoch, version, revision, variants)"
+                ")",
+                "CREATE INDEX registry.port_name ON ports"
+                    "(name, epoch, version, revision, variants)",
+                "CREATE INDEX registry.port_state ON ports(state)",
+
+                /* Copy all data back from temporary table */
+                "INSERT INTO registry.ports (id, name, portfile, location, epoch, version, "
+                    "revision, variants, negated_variants, state, date, installtype, archs, "
+                    "requested, os_platform, os_major) SELECT id, name, portfile, location, "
+                    "epoch, version, revision, variants, negated_variants, state, date, "
+                    "installtype, archs, requested, os_platform, os_major "
+                    "FROM mp_ports_backup",
+
+                /* Remove temporary table */
+                "DROP TABLE mp_ports_backup",
+#endif
+
+                "UPDATE registry.metadata SET value = '1.204' WHERE key = 'version'",
+
+                "COMMIT",
+                NULL
+            };
+
+            sqlite3_finalize(stmt);
+            stmt = NULL;
+
+            if (!do_queries(db, version_1_204_queries, errPtr)) {
+                rollback_db(db);
+                return 0;
+            }
+
+            did_update = 1;
+            continue;
+        }
+
+        if (sql_version(NULL, -1, version, -1, "1.205") < 0) {
+			/* Add tables required for the snapshot functionality used by 'port
+			 * snapshot', 'port migrate' and 'port restore'. */
+
+            static char* version_1_205_queries[] = {
 
                 /* snapshots table */
                 "CREATE TABLE registry.snapshots ("
@@ -685,14 +774,15 @@ int update_db(sqlite3* db, reg_error* errPtr) {
                     ")",
 
                 /* Update version and commit */
-                "UPDATE registry.metadata SET value = '1.204' WHERE key = 'version'",
+                "UPDATE registry.metadata SET value = '1.205' WHERE key = 'version'",
                 "COMMIT",
                 NULL
             };
 
             sqlite3_finalize(stmt);
             stmt = NULL;
-            if (!do_queries(db, version_1_204_queries, errPtr)) {
+
+            if (!do_queries(db, version_1_205_queries, errPtr)) {
                 rollback_db(db);
                 return 0;
             }
@@ -710,7 +800,7 @@ int update_db(sqlite3* db, reg_error* errPtr) {
          *  - update the current version number below
          */
 
-        if (sql_version(NULL, -1, version, -1, "1.204") > 0) {
+        if (sql_version(NULL, -1, version, -1, "1.205") > 0) {
             /* the registry was already upgraded to a newer version and cannot be used anymore */
             reg_throw(errPtr, REG_INVALID, "Version number in metadata table is newer than expected.");
             sqlite3_finalize(stmt);
