@@ -77,7 +77,7 @@ namespace eval migrate {
         # If port migrate was not called with --continue, the user probably did
         # that manually and we do not have confirmation to run migration yet;
         # do that now.
-        set continuation [expr {[info exists options(ports_migration_continue)] && $options(ports_migration_continue)}]
+        set continuation [expr {[info exists options(ports_migrate_continue)] && $options(ports_migrate_continue)}]
         if {!$continuation && [info exists macports::ui_options(questions_yesno)]} {
             set msg "Migration will reinstall all installed ports."
             set retvalue [$macports::ui_options(questions_yesno) $msg "MigrationContinuationPrompt" "" {y} 0 "Would you like to continue?"]
@@ -159,8 +159,10 @@ namespace eval migrate {
         array set optionslist {}
         # Force rebuild, but do not allow downgrade
         set optionslist(ports_selfupdate_migrate) 1
+        # Avoid portindex, which would trigger 'portindex', which does not work
+        set optionslist(ports_selfupdate_nosync) 1
 
-        uplevel [list selfupdate::main [array get optionslist] base_updated]
+        selfupdate::main [array get optionslist] base_updated
         return $base_updated
     }
 }
