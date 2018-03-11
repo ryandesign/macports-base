@@ -67,9 +67,19 @@ namespace eval restore {
         } elseif {[info exists options(ports_restore_last)]} {
             set snapshot [fetch_snapshot_last]
         } else {
-            set list [list_snapshots]
-            set retstring [$macports::ui_options(questions_singlechoice) "Select any one snapshot to restore:" "" $list]
-            set snapshot [lindex $list $retstring]
+            set snapshots [list_snapshots]
+            set human_readable_snapshots {}
+            foreach snapshot $snapshots {
+                lappend human_readable_snapshots "[$snapshot note], created at [$snapshot created_at] (ID: [$snapshot id])"
+            }
+
+            if {[llength $snapshots] == 0} {
+                ui_error "There are no snapshots to restore. You must run 'sudo port snapshot' first."
+                return 1
+            }
+
+            set retstring [$macports::ui_options(questions_singlechoice) "Select any one snapshot to restore:" "" $human_readable_snapshots]
+            set snapshot [lindex $snapshots $retstring]
 
             ui_msg "Deactivating all ports installed.."
             deactivate_all
