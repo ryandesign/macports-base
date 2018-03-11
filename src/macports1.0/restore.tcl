@@ -290,12 +290,25 @@ namespace eval restore {
     }
 
     proc restore_state {snapshot_portlist} {
-        set sorted_snapshot_portlist [portlist_sort_dependencies_first $snapshot_portlist]
         ui_msg "Installing ports:"
-        foreach port $sorted_snapshot_portlist {
-            ui_msg "   $port"
+        set snapshot_portlist [lsort -index 0 -nocase $snapshot_portlist]
+
+        foreach port $snapshot_portlist {
+            # 0: port name
+            # 1: requested (0/1)
+            # 2: state (imaged/installed, i.e. inactive/active)
+            # 3: variants
+            if {[lindex $port 1] == 1} {
+                # Hide unrequested ports
+                if {[lindex $port 2] eq "installed"} {
+                    ui_msg "   [lindex $port 0] [lindex $port 3]"
+                } else {
+                    ui_msg "   [lindex $port 0] [lindex $port 3] (inactive)"
+                }
+            }
         }
 
+        set sorted_snapshot_portlist [portlist_sort_dependencies_first $snapshot_portlist]
         foreach port $sorted_snapshot_portlist {
 
             set name [string trim [lindex $port 0]]
