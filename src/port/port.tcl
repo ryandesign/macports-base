@@ -2847,6 +2847,10 @@ proc action_migrate { action portlist opts } {
         ui_debug "Would have executed $::argv0 $::argv --continue"
         ui_error "Failed to re-execute MacPorts migration, please run 'sudo port migrate' manually."
     }
+    if {$result == -1} {
+        # snapshot error
+        ui_error "Failed to create a snapshot and migration cannot proceed."
+    }
 }
 
 proc action_upgrade { action portlist opts } {

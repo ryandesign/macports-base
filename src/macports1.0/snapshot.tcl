@@ -52,8 +52,30 @@ namespace eval snapshot {
             } else {
                 set note "snapshot created for migration"
             }
-            # TODO: catch
+            set inactive_ports  [list]
+            foreach port [registry::entry imaged] {
+                if {[$port state] eq "imaged"} {
+                    lappend inactive_ports "[$port name] @[$port version]_[$port revision] [$port variants][$port negated_variants]"
+                }
+            }
+            if {[llength $inactive_ports] != 0} {
+                set msg "Following inactive ports will not be a part of this snapshot and won't be installed while restoring:"
+                set inactive_ports [lsort -index 0 -nocase $inactive_ports]
+                if {[info exists macports::ui_options(questions_yesno)]} {
+                    set retvalue [$macports::ui_options(questions_yesno) $msg "Continue?" $inactive_ports {y} 0]
+                    if {$retvalue != 0} {
+                        ui_msg "Not creating a snapshot!"
+                        return 0
+                    }
+                } else {
+                    puts $msg
+                    foreach port $inactive_ports {
+                        puts $port
+                    }
+                }
+            }
             set snapshot [registry::snapshot create $note]
+            # TODO: catch
         }
         return $snapshot
     }
