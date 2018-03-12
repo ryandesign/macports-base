@@ -76,16 +76,11 @@ reg_snapshot* reg_snapshot_create(reg_registry* reg, char* note,
 // helper method for storing ports for this snapshot
 int snapshot_store_ports(reg_registry* reg, reg_snapshot* snapshot,
         reg_error* errPtr);
-// helper method for storing variants for a port in a snapshot
-int snapshot_store_port_variants(reg_registry* reg, reg_entry* port_entry,
-        int snapshot_ports_id, reg_error* errPtr);
+
 // snapshot properties retrieval methods
 int reg_snapshot_propget(reg_snapshot* snapshot, char* key, char** value,
         reg_error* errPtr);
 int reg_snapshot_ports_get(reg_snapshot* snapshot, port*** ports,
-        reg_error* errPtr);
-int reg_snapshot_ports_get_helper(reg_registry* reg,
-        sqlite_int64 snapshot_port_id, variant*** variants,
         reg_error* errPtr);
 
 #endif /* _CSNAPSHOT_H */

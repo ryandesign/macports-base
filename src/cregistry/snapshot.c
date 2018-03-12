@@ -248,56 +248,43 @@ int snapshot_store_ports(reg_registry* reg, reg_snapshot* snapshot, reg_error* e
     reg_error error;
     int i, entry_count;
     int result = 1;
-    entry_count = reg_entry_imaged(reg, NULL, NULL, NULL, NULL,
-            &entries, &error);
+    entry_count = reg_entry_installed(reg, NULL, &entries, &error);
     char* key1 = "name";
     char* key2 = "requested";
     char* key3 = "state";
+    char* key4 = "variants";
+    char* key5 = "negated_variants";
     if (entry_count >= 0) {
         for ( i = 0; i < entry_count; i++) {
             char* port_name;
             char* requested;
             char* state;
+            char* positive_variants_str;
+            char* negative_variants_str;
             sqlite3_stmt* stmt = NULL;
             reg_entry* entry = NULL;
             if (reg_entry_propget(entries[i], key1, &port_name, &error)
                 && reg_entry_propget(entries[i], key2, &requested, &error)
-                && reg_entry_propget(entries[i], key3, &state, &error)) {
+                && reg_entry_propget(entries[i], key3, &state, &error)
+                && reg_entry_propget(entries[i], key4, &positive_variants_str, &error)
+                && reg_entry_propget(entries[i], key5, &negative_variants_str, &error)) {
 
                 char* query = "INSERT INTO registry.snapshot_ports "
-                    "(snapshots_id, port_name, requested, state) "
-                    "VALUES (?, ?, ?, ?)";
+                    "(snapshots_id, port_name, requested, state, variants, negated_variants) "
+                    "VALUES (?, ?, ?, ?, ?, ?)";
 
                 if ((sqlite3_prepare_v2(reg->db, query, -1, &stmt, NULL) == SQLITE_OK)
                         && (sqlite3_bind_int64(stmt, 1, snapshot->id) == SQLITE_OK)
                         && (sqlite3_bind_text(stmt, 2, port_name, -1, SQLITE_STATIC) == SQLITE_OK)
                         && (sqlite3_bind_int64(stmt, 3, atoi(requested)) == SQLITE_OK)
-                        && (sqlite3_bind_text(stmt, 4, state, -1, SQLITE_STATIC) == SQLITE_OK)) {
+                        && (sqlite3_bind_text(stmt, 4, state, -1, SQLITE_STATIC) == SQLITE_OK)
+                        && (sqlite3_bind_text(stmt, 5, positive_variants_str, -1, SQLITE_STATIC) == SQLITE_OK)
+                        && (sqlite3_bind_text(stmt, 6, negative_variants_str, -1, SQLITE_STATIC) == SQLITE_OK)) {
                     int r;
                     do {
                         r = sqlite3_step(stmt);
                         switch (r) {
                             case SQLITE_DONE:
-                                // store variants for entries[i]
-                                entry = (reg_entry*)malloc(sizeof(reg_entry));
-                                if (entry) {
-                                    entry->id = sqlite3_last_insert_rowid(reg->db);
-                                    entry->reg = reg;
-                                    entry->proc = NULL;
-
-                                    int port_variants_saved = snapshot_store_port_variants(
-                                        reg, entries[i], entry->id, errPtr);
-
-                                    switch (port_variants_saved) {
-                                        case 1:
-                                            // TODO: pass the custom SUCCESS messages
-                                            break;
-                                        case 0:
-                                            reg_sqlite_error(reg->db, errPtr, query);
-                                            result = 0;
-                                            break;
-                                    }
-                                }
                                 break;
                             case SQLITE_BUSY:
                                 break;
@@ -322,86 +309,6 @@ int snapshot_store_ports(reg_registry* reg, reg_snapshot* snapshot, reg_error* e
 }
 
 /**
- * helper method for storing variants for a port in a snapshot
- *
- * @param [in] reg                  associated registry
- * @param [in] port_entry           registry.ports port to get current variants to store
-                                    and not snapshot_port
- * @param [in] snapshot_port_id     sqlite_int64 id of the port in snapshot_ports table
- * @param [out] errPtr              on error, a description of the error that occurred
- * @return                          true if success; 0 if failure
- */
-int snapshot_store_port_variants(reg_registry* reg, reg_entry* port_entry,
-    int snapshot_ports_id, reg_error* errPtr) {
-
-    reg_error error;
-    int i, result = 1;
-
-    char* key1 = "variants";
-    char* key2 = "negated_variants";
-    char* positive_variants_str;
-    char* negative_variants_str;
-
-    if(reg_entry_propget(port_entry, key1, &positive_variants_str, &error)
-        && reg_entry_propget(port_entry, key2, &negative_variants_str, &error)) {
-
-        int variant_space = 100;
-        variant* all_variants = (variant*) malloc(variant_space * sizeof(variant));
-
-        if (all_variants == NULL) {
-            return 0;
-        }
-
-        char* pos_delim = "+";
-        char* neg_delim = "-";
-
-        int variant_count = 0;
-
-        int p = get_parsed_variants(positive_variants_str, all_variants, pos_delim, &variant_count);
-        if (p < 0) {
-            return 0;
-        }
-
-        int n = get_parsed_variants(negative_variants_str, all_variants, neg_delim, &variant_count);
-        if (n < 0) {
-            return 0;
-        }
-
-        for ( i = 0; i < variant_count; i++){
-            sqlite3_stmt* stmt = NULL;
-            char* query = "INSERT INTO registry.snapshot_port_variants "
-                "(snapshot_ports_id, variant_name, variant_sign) "
-                "VALUES (?, ?, ?)";
-            variant v = *(all_variants + i);
-            if((sqlite3_prepare_v2(reg->db, query, -1, &stmt, NULL) == SQLITE_OK)
-                    && (sqlite3_bind_int64(stmt, 1, snapshot_ports_id) == SQLITE_OK)
-                    && (sqlite3_bind_text(stmt, 2, v.variant_name, -1, SQLITE_STATIC) == SQLITE_OK)
-                    && (sqlite3_bind_text(stmt, 3, v.variant_sign, -1, SQLITE_STATIC) == SQLITE_OK)) {
-                int r;
-                do {
-                    r = sqlite3_step(stmt);
-                    switch (r) {
-                        case SQLITE_DONE:
-                            break;
-                        case SQLITE_BUSY:
-                            break;
-                        default:
-                            reg_sqlite_error(reg->db, errPtr, query);
-                            result = 0;
-                            break;
-                    }
-                } while (r == SQLITE_BUSY);
-            } else {
-                reg_sqlite_error(reg->db, errPtr, query);
-                result = 0;
-            }
-        }
-        free(all_variants);
-    }
-    return result;
-}
-
-/**
  * reg_snapshot_ports_get: Gets the ports of a snapshot.
  *
  * @param [in] snapshot   snapshot to get property from
@@ -418,10 +325,13 @@ int reg_snapshot_ports_get(reg_snapshot* snapshot, port*** ports, reg_error* err
 
     const char* port_name;
     const char* state;
+    const char* positive_variants;
+    const char* negated_variants;
 
     if ((sqlite3_prepare_v2(reg->db, query, -1, &stmt, NULL) == SQLITE_OK)
         && (sqlite3_bind_int64(stmt, 1, snapshot->id) == SQLITE_OK )) {
 
+        // TODO: why 10?
         port** result = (port**)malloc(10 * sizeof(port*));
 
         if (!result) {
@@ -432,10 +342,9 @@ int reg_snapshot_ports_get(reg_snapshot* snapshot, port*** ports, reg_error* err
         int result_space = 10;
         int r;
 
-        variant** variants;
-
         sqlite_int64 snapshot_port_id;
         int requested;
+        char* variantstr = NULL;
 
         do {
             r = sqlite3_step(stmt);
@@ -446,55 +355,30 @@ int reg_snapshot_ports_get(reg_snapshot* snapshot, port*** ports, reg_error* err
                     port_name = (const char*) sqlite3_column_text(stmt, 2);
                     requested = (int) sqlite3_column_int64(stmt, 3);
                     state = (const char*) sqlite3_column_text(stmt, 4);
+                    positive_variants = (const char*) sqlite3_column_text(stmt, 5);
+                    negated_variants = (const char*) sqlite3_column_text(stmt, 6);
 
                     port* current_port = (port*) malloc(sizeof(port));
                     if (!current_port) {
                         return -1;
                     }
+
+                    variantstr = malloc(strlen(positive_variants) + strlen(negated_variants) + 1);
+                    if (!variantstr) {
+                        return -1;
+                    }
+                    variantstr[0] = '\0';
+                    strcat(variantstr, positive_variants);
+                    strcat(variantstr, negated_variants);
+
                     current_port->name = strdup(port_name);
                     current_port->requested = requested;
                     current_port->state = strdup(state);
-
-                    variants = (variant**) malloc(sizeof(variant*));
-                    if (!variants) {
-                        return -1;
-                    }
-                    int variant_count = reg_snapshot_ports_get_helper(reg, snapshot_port_id, &variants, errPtr);
-                    current_port->variant_count = variant_count;
-
-                    char* variantstr = NULL;
-                    if (current_port->variant_count > 0) {
-                        // construct the variant string in the form '+var1-var2+var3'
-                        size_t variantstrlen = 0;
-                        for (int j = 0; j < current_port->variant_count; ++j) {
-                            variantstrlen += strlen(variants[j]->variant_sign);
-                            variantstrlen += strlen(variants[j]->variant_name);
-                        }
-
-                        // +1 for \0
-                        variantstr = malloc(variantstrlen + 1);
-                        if (!variantstr) {
-                            return -1;
-                        }
-                        variantstr[0] = '\0';
-                        for (int j = 0; j < current_port->variant_count; ++j) {
-                            strcat(variantstr, variants[j]->variant_sign);
-                            strcat(variantstr, variants[j]->variant_name);
-                        }
-                        current_port->variants = variantstr;
-                    } else {
-                        current_port->variants = strdup("\0");
-                    }
+                    current_port->variants = variantstr;
 
                     if (!reg_listcat((void***)&result, &result_count, &result_space, current_port)) {
                             r = SQLITE_ERROR;
                     }
-                    int i;
-                    for (i = 0; i < variant_count; i++) {
-                        free(variants[i]);
-                    }
-                    free(variants);
-                    variants = NULL;
                     break;
                 case SQLITE_DONE:
                     break;
@@ -527,86 +411,6 @@ int reg_snapshot_ports_get(reg_snapshot* snapshot, port*** ports, reg_error* err
     }
     reg_sqlite_error(reg->db, errPtr, query);
     return -1;
-}
-
-/**
- * reg_snapshot_ports_get_helper: Gets the variants of a port in snapshot.
- *
- * @param [in] reg                  associated registry
- * @param [in] snapshot_port_id     sqlite_int64 id of the port in snapshot_ports table
- * @param [out] variants            variants in the 'struct variant' form in snapshot.h
- * @param [out] errPtr              on error, a description of the error that occurred
- * @return                          variant_count if success; -1 if failure
- */
-int reg_snapshot_ports_get_helper(reg_registry* reg, sqlite_int64 snapshot_port_id,
-    variant*** variants, reg_error* errPtr) {
-
-    sqlite3_stmt* stmt = NULL;
-
-    char* query = "SELECT * FROM registry.snapshot_port_variants WHERE snapshot_ports_id=?";
-
-    if ((sqlite3_prepare_v2(reg->db, query, -1, &stmt, NULL) == SQLITE_OK)
-        && (sqlite3_bind_int64(stmt, 1, snapshot_port_id) == SQLITE_OK )) {
-
-        int result_count = 0;
-        int result_space = 10;
-        int r;
-
-        variant** result = (variant**)malloc(result_space * sizeof(variant*));
-        if (!result) {
-            return -1;
-        }
-
-        const char* variant_name;
-        const char* variant_sign;
-
-        do {
-            r = sqlite3_step(stmt);
-            switch (r) {
-                case SQLITE_ROW:
-
-                    variant_name = (const char*)sqlite3_column_text(stmt, 2);
-                    variant_sign = (const char*)sqlite3_column_text(stmt, 3);
-
-                    variant* element = (variant*)malloc(sizeof(variant));
-                    if (!element) {
-                        return -1;
-                    }
-                    element->variant_name = strdup(variant_name);
-                    element->variant_sign = strdup(variant_sign);
-                    if (!reg_listcat((void***)&result, &result_count, &result_space, element)) {
-                        r = SQLITE_ERROR;
-                    }
-                    break;
-                case SQLITE_DONE:
-                case SQLITE_BUSY:
-                    continue;
-                default:
-                    reg_sqlite_error(reg->db, errPtr, query);
-                    break;
-            }
-        } while (r == SQLITE_ROW || r == SQLITE_BUSY);
-
-        if (r == SQLITE_DONE) {
-            *variants = result;
-            return result_count;
-        } else {
-            int i;
-            for (i = 0; i < result_count; i++) {
-                free((*(*variants + i))->variant_name);
-                free((*(*variants + i))->variant_sign);
-            }
-            free(variants);
-            return -1;
-        }
-        sqlite3_finalize(stmt);
-    } else {
-        reg_sqlite_error(reg->db, errPtr, query);
-        if (stmt) {
-            sqlite3_finalize(stmt);
-        }
-        return -1;
-    }
 }
 
 /**

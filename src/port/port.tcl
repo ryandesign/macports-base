@@ -2841,7 +2841,7 @@ proc action_restore { action portlist opts } {
 proc action_migrate { action portlist opts } {
     return [macports::migrate_main $opts]
     set result [macports::migrate_main $opts]
-    if {$result = -999} {
+    if {$result == -999} {
         # MacPorts base was upgraded, re-execute migrate with the --continue flag
         execl $::argv0 [list {*}$::argv "--continue"]
         ui_debug "Would have executed $::argv0 $::argv --continue"

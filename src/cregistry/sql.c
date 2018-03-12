@@ -211,18 +211,9 @@ int create_tables(sqlite3* db, reg_error* errPtr) {
             ", port_name TEXT COLLATE NOCASE"
             ", requested INTEGER"
             ", state TEXT COLLATE NOCASE"
+            ", variants TEXT"
+            ", negated_variants TEXT"
             ", FOREIGN KEY(snapshots_id) REFERENCES snapshots(id)"
-            " ON DELETE CASCADE"
-            ")",
-
-        /* snapshot port variants table */
-        /* all variants (+, -) of the ports in a snapshot */
-        "CREATE TABLE registry.snapshot_port_variants ("
-              "id INTEGER PRIMARY KEY"
-            ", snapshot_ports_id INTEGER"
-            ", variant_name TEXT COLLATE NOCASE"
-            ", variant_sign TEXT"
-            ", FOREIGN KEY(snapshot_ports_id) REFERENCES snapshot_ports(id)"
             " ON DELETE CASCADE"
             ")",
 
@@ -759,17 +750,9 @@ int update_db(sqlite3* db, reg_error* errPtr) {
                     ", port_name TEXT COLLATE NOCASE"
                     ", requested INTEGER"
                     ", state TEXT COLLATE NOCASE"
+                    ", variants TEXT"
+                    ", negated_variants TEXT"
                     ", FOREIGN KEY(snapshots_id) REFERENCES snapshots(id)"
-                    " ON DELETE CASCADE"
-                    ")",
-
-                /* snapshot port variants table */
-                "CREATE TABLE registry.snapshot_port_variants ("
-                      "id INTEGER PRIMARY KEY"
-                    ", snapshot_ports_id INTEGER"
-                    ", variant_name TEXT COLLATE NOCASE"
-                    ", variant_sign TEXT"
-                    ", FOREIGN KEY(snapshot_ports_id) REFERENCES snapshot_ports(id)"
                     " ON DELETE CASCADE"
                     ")",
 
