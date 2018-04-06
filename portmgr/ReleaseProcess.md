@@ -137,15 +137,15 @@ They are named with the following naming convention:
 The following commands issued to the top level Makefile will generate all the
 tarballs and checksums:
 
-    make dist DISTVER=2.0.0
+    make dist DISTTAG=v2.0.0
 
 The release should be signed with a detached GPG signature in order to allow
 cryptographic verification. To do this automatically, use the additional
 argument `DISTGPGID` on the make command. The value specifies a key ID either
-in hexadecimal format or a email address matching exactly one key. For
-details, see [HOW TO SPECIFY A USER ID in gpg(1)][gpg-user-id] for details.
+in hexadecimal format or a email address matching exactly one key. See
+[HOW TO SPECIFY A USER ID in gpg(1)][gpg-user-id] for details.
 
-    make dist DISTVER=2.0.0 DISTGPGID=<handle>@macports.org
+    make dist DISTTAG=v2.0.0 DISTGPGID=<handle>@macports.org
 
 These tarballs and the checksums are uploaded to the
 https://distfiles.macports.org/MacPorts/ directory. At present, this must be

@@ -1,16 +1,28 @@
 
 DISTDIR     = dist
-DISTVER     =
-DISTTAG     = v$(DISTVER)
-DISTNAME    = MacPorts-$(DISTVER)
 DISTGPGID   =
+DISTTAG     =
+DISTTAGCHK  = $(if $(DISTTAG),,usage)
+ifeq ($(DISTTAG),)
+DISTNAME    = MacPorts
+else
+DISTVERSION = $(shell git show $(DISTTAG):config/macports_version)
+ifeq ($(DISTTAG),v$(DISTVERSION))
+DISTNAME    = MacPorts-$(DISTVERSION)
+else
+DISTDATE    = $(shell TZ=UTC git show --no-patch --format=%cd --date='format-local:%Y%m%dT%H%M%SZ' $(DISTTAG))
+DISTNAME    = MacPorts-$(DISTVERSION)-$(DISTDATE)-$(DISTTAG)
+endif
+endif
 
+usage:
+	@echo "Usage: \`make -f $(lastword $(MAKEFILE_LIST)) dist DISTTAG=v2.4.2' or \`make -f $(lastword $(MAKEFILE_LIST)) dist DISTTAG=0123456789abcdef'"
+	@exit 1
 
 clean:
 	rm -rf $(DISTDIR)
 
-dist:
-	@[ -n "$(DISTVER)" ] || { echo "Usage: make dist DISTVER=2.3.4"; exit 1; }
+dist: $(DISTTAGCHK)
 	mkdir -p $(DISTDIR)
 	git archive --format=tar --prefix=$(DISTNAME)/ $(DISTTAG) --output=$(DISTDIR)/$(DISTNAME).tar
 	gzip -cn < $(DISTDIR)/$(DISTNAME).tar > $(DISTDIR)/$(DISTNAME).tar.gz
@@ -25,4 +37,4 @@ dist:
 		fi; \
 	done
 
-.PHONY: clean dist
+.PHONY: clean dist usage
