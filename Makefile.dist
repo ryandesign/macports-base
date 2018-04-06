@@ -3,6 +3,7 @@ DISTDIR     = dist
 DISTGPGID   =
 DISTTAG     =
 DISTTAGCHK  = $(if $(DISTTAG),,usage)
+DISTGOALS   = $(or $(MAKECMDGOALS),dist)
 ifeq ($(DISTTAG),)
 DISTNAME    = MacPorts
 else
@@ -16,7 +17,7 @@ endif
 endif
 
 usage:
-	@echo "Usage: \`make -f $(lastword $(MAKEFILE_LIST)) dist DISTTAG=v2.4.2' or \`make -f $(lastword $(MAKEFILE_LIST)) dist DISTTAG=0123456789abcdef'"
+	@echo "Usage: \`make -f $(lastword $(MAKEFILE_LIST)) $(DISTGOALS) DISTTAG=v2.4.2' or \`make -f $(lastword $(MAKEFILE_LIST)) $(DISTGOALS) DISTTAG=0123456789abcdef'"
 	@exit 1
 
 clean:
