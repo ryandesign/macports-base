@@ -1,20 +1,20 @@
 
 DISTDIR     = dist
 DISTGPGID   =
-DISTGPGIDCHK = $(if $(DISTGPGID),,signusage)
+DISTGPGIDCHK := $(if $(DISTGPGID),,signusage)
 DISTTAG     =
-DISTTAGCHK  = $(if $(DISTTAG),,distusage)
-DISTGOALS   = $(or $(MAKECMDGOALS),dist)
-SIGNGOALS   = $(or $(MAKECMDGOALS),sign)
+DISTTAGCHK  := $(if $(DISTTAG),,distusage)
+DISTGOALS   := $(or $(MAKECMDGOALS),dist)
+SIGNGOALS   := $(or $(MAKECMDGOALS),sign)
 ifeq ($(DISTTAG),)
-DISTNAME    = MacPorts
+DISTNAME    := MacPorts
 else
-DISTVERSION = $(shell git show $(DISTTAG):config/macports_version)
+DISTVERSION := $(shell git show $(DISTTAG):config/macports_version)
 ifeq ($(DISTTAG),v$(DISTVERSION))
-DISTNAME    = MacPorts-$(DISTVERSION)
+DISTNAME    := MacPorts-$(DISTVERSION)
 else
-DISTDATE    = $(shell TZ=UTC git show --no-patch --format=%cd --date='format-local:%Y%m%dT%H%M%SZ' $(DISTTAG))
-DISTNAME    = MacPorts-$(DISTVERSION)-$(DISTDATE)-$(DISTTAG)
+DISTDATE    := $(shell TZ=UTC git show --no-patch --format=%cd --date='format-local:%Y%m%dT%H%M%SZ' $(DISTTAG))
+DISTNAME    := MacPorts-$(DISTVERSION)-$(DISTDATE)-$(DISTTAG)
 endif
 endif
 DISTFILES   := $(addprefix $(DISTDIR)/$(DISTNAME),.tar.gz .tar.bz2)
