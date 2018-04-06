@@ -1,9 +1,11 @@
 
 DISTDIR     = dist
 DISTGPGID   =
+DISTGPGIDCHK = $(if $(DISTGPGID),,signusage)
 DISTTAG     =
-DISTTAGCHK  = $(if $(DISTTAG),,usage)
+DISTTAGCHK  = $(if $(DISTTAG),,distusage)
 DISTGOALS   = $(or $(MAKECMDGOALS),dist)
+SIGNGOALS   = $(or $(MAKECMDGOALS),sign)
 ifeq ($(DISTTAG),)
 DISTNAME    = MacPorts
 else
@@ -15,9 +17,16 @@ DISTDATE    = $(shell TZ=UTC git show --no-patch --format=%cd --date='format-loc
 DISTNAME    = MacPorts-$(DISTVERSION)-$(DISTDATE)-$(DISTTAG)
 endif
 endif
+DISTFILES   := $(addprefix $(DISTDIR)/$(DISTNAME),.tar.gz .tar.bz2)
+CHKFILES    := $(addsuffix .chk.txt,$(DISTFILES))
+GPGFILES    := $(addsuffix .asc,$(DISTFILES))
 
-usage:
+distusage:
 	@echo "Usage: \`make -f $(lastword $(MAKEFILE_LIST)) $(DISTGOALS) DISTTAG=v2.4.2' or \`make -f $(lastword $(MAKEFILE_LIST)) $(DISTGOALS) DISTTAG=0123456789abcdef'"
+	@exit 1
+
+signusage:
+	@echo "Usage: \`make -f $(lastword $(MAKEFILE_LIST)) $(SIGNGOALS) DISTGPGID=<handle>@macports.org DISTTAG=...'"
 	@exit 1
 
 clean:
@@ -33,15 +42,21 @@ $(DISTDIR)/$(DISTNAME).tar: $(DISTTAGCHK)
 %.bz2: %
 	bzip2 -c9 < $< > $@
 
-dist: $(DISTDIR)/$(DISTNAME).tar.gz $(DISTDIR)/$(DISTNAME).tar.bz2
-	rm -f $(DISTDIR)/$(DISTNAME).chk.txt
-	cd $(DISTDIR) && for tarball in $(DISTNAME).tar.{gz,bz2}; do \
-		for type in -md5 -sha1 -ripemd160 -sha256; do \
-			openssl dgst $$type $$tarball; \
-		done >> $(DISTNAME).chk.txt; \
-		if [ -n "$(DISTGPGID)" ]; then \
-			gpg --sign --detach-sig --armor --local-user $(DISTGPGID) $$tarball; \
-		fi; \
-	done
+dist: $(DISTFILES)
 
-.PHONY: clean dist usage
+$(DISTDIR)/$(DISTNAME).chk.txt: $(DISTTAGCHK) $(CHKFILES)
+	cat $(sort $^) > $@
+
+%.chk.txt: %
+	cd $(dir $<) && for type in md5 sha1 ripemd160 sha256; do \
+		openssl dgst -$$type $(notdir $<); \
+	done >> $(notdir $@)
+
+chk: $(DISTDIR)/$(DISTNAME).chk.txt
+
+%.asc: $(DISTGPGIDCHK) %
+	gpg --sign --detach-sig --armor --local-user $(DISTGPGID) $<
+
+sign: $(DISTTAGCHK) $(GPGFILES)
+
+.PHONY: chk clean dist distusage sign signusage
