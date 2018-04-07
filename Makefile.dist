@@ -3,17 +3,18 @@ DISTDIR     = dist
 DISTGPGID   =
 DISTGPGIDCHK := $(if $(DISTGPGID),,signusage)
 DISTTAG     =
-DISTTAGCHK  := $(if $(DISTTAG),,distusage)
 DISTGOALS   := $(or $(MAKECMDGOALS),dist)
 SIGNGOALS   := $(or $(MAKECMDGOALS),sign)
+# But this is wrong for -beta* and -rc*
+DISTVERSION := $(if $(DISTTAG),$(shell git show $(DISTTAG):config/macports_version --),)
+VALID_DISTTAG := $(if $(DISTVERSION),,distusage)
 ifeq ($(DISTTAG),)
 DISTNAME    := MacPorts
 else
-DISTVERSION := $(shell git show $(DISTTAG):config/macports_version)
 ifeq ($(DISTTAG),v$(DISTVERSION))
 DISTNAME    := MacPorts-$(DISTVERSION)
 else
-DISTDATE    := $(shell TZ=UTC git show --no-patch --format=%cd --date='format-local:%Y%m%dT%H%M%SZ' $(DISTTAG))
+DISTDATE    := $(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(DISTTAG) --)
 DISTNAME    := MacPorts-$(DISTVERSION)-$(DISTDATE)-$(DISTTAG)
 endif
 endif
@@ -32,7 +33,7 @@ signusage:
 clean:
 	rm -rf $(DISTDIR)
 
-$(DISTDIR)/$(DISTNAME).tar: $(DISTTAGCHK)
+$(DISTDIR)/$(DISTNAME).tar: $(VALID_DISTTAG)
 	mkdir -p $(DISTDIR)
 	git archive --format=tar --prefix=$(DISTNAME)/ $(DISTTAG) --output=$@
 
@@ -44,7 +45,7 @@ $(DISTDIR)/$(DISTNAME).tar: $(DISTTAGCHK)
 
 dist: $(DISTFILES)
 
-$(DISTDIR)/$(DISTNAME).chk.txt: $(DISTTAGCHK) $(CHKFILES)
+$(DISTDIR)/$(DISTNAME).chk.txt: $(VALID_DISTTAG) $(CHKFILES)
 	cat $(sort $^) > $@
 
 %.chk.txt: %
@@ -57,6 +58,6 @@ chk: $(DISTDIR)/$(DISTNAME).chk.txt
 %.asc: $(DISTGPGIDCHK) %
 	gpg --sign --detach-sig --armor --local-user $(DISTGPGID) $<
 
-sign: $(DISTTAGCHK) $(GPGFILES)
+sign: $(VALID_DISTTAG) $(GPGFILES)
 
 .PHONY: chk clean dist distusage sign signusage
