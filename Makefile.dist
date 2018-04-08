@@ -1,7 +1,8 @@
 
 DISTDIR     = dist
-BUILDDIR    = $(DISTDIR)/$(DISTNAME)/_build
-DESTDIR     = $(DISTDIR)/$(DISTNAME)/_destroot
+WORKSRCPATH = $(DISTDIR)/$(DISTNAME)
+BUILDDIR    = $(WORKSRCPATH)
+DESTDIR     = $(BUILDDIR)/_destroot
 DISTGPGID   =
 DISTGPGIDCHK := $(if $(DISTGPGID),,signusage)
 DISTTAG     =
@@ -9,6 +10,8 @@ DISTGOALS   := $(or $(MAKECMDGOALS),dist)
 SIGNGOALS   := $(or $(MAKECMDGOALS),sign)
 # But this is wrong for -beta* and -rc*
 DISTVERSION := $(if $(DISTTAG),$(shell git show $(DISTTAG):config/macports_version --),)
+GIT_ABBREV          := 7
+GIT_ABBREV_COMMIT   := $(if $(DISTVERSION),$(shell git rev-list -1 --abbrev-commit --abbrev=$(GIT_ABBREV) $(DISTTAG) --),)
 VALID_DISTTAG := $(if $(DISTVERSION),,distusage)
 ifeq ($(DISTTAG),)
 DISTNAME    := MacPorts
@@ -17,7 +20,7 @@ ifeq ($(DISTTAG),v$(DISTVERSION))
 DISTNAME    := MacPorts-$(DISTVERSION)
 else
 DISTDATE    := $(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(DISTTAG) --)
-DISTNAME    := MacPorts-$(DISTVERSION)-$(DISTDATE)-$(DISTTAG)
+DISTNAME    := MacPorts-$(DISTVERSION)-$(DISTDATE)-$(GIT_ABBREV_COMMIT)
 endif
 endif
 MACOS_VERSION   := $(shell sw_vers -productVersion | cut -d. -f1-2)
@@ -67,22 +70,25 @@ sign: $(VALID_DISTTAG) $(GPGFILES)
 ospkg: $(OS_PKG)
 $(OS_PKG): | ospkgdestroot
 
-ospkgextract: | $(DISTDIR)/$(DISTNAME)/configure
-$(DISTDIR)/$(DISTNAME)/configure: | $(DISTDIR)/$(DISTNAME).tar
+ospkgextract: $(WORKSRCPATH)/configure
+$(WORKSRCPATH)/configure: | $(DISTDIR)/$(DISTNAME).tar
 	tar -C $(DISTDIR) -xf $|
 
-ospkgconfigure: | $(BUILDDIR)/Makefile
+ospkgconfigure: $(BUILDDIR)/Makefile
 $(BUILDDIR)/Makefile: | ospkgextract
 	mkdir -p $(BUILDDIR)
-	cd $(BUILDDIR) && ../configure --enable-readline
+	cd $(BUILDDIR) && $(abspath $(WORKSRCPATH))/standard_configure.sh
 
-ospkgbuild: | $(BUILDDIR)/src/port/port
+ospkgbuild: $(BUILDDIR)/src/port/port
 $(BUILDDIR)/src/port/port: | ospkgconfigure
 	$(MAKE) -C $(BUILDDIR) -j$(shell sysctl -n hw.activecpu)
 
-ospkgdestroot: | ospkgbuild
+ospkgdestroot: $(DESTDIR)/opt/local/bin/port
+$(DESTDIR)/opt/local/bin/port: | ospkgbuild
 	mkdir -p $(DESTDIR)
-	$(MAKE) -C $(BUILDDIR) install DESTDIR=$(DESTDIR)
+	@echo "\`make install' requires administrator privileges"
+	sudo $(MAKE) -C $(BUILDDIR) install DESTDIR=$(abspath $(DESTDIR))
+	sudo rm -f $(DESTDIR)/opt/local/etc/macports/*.conf
 
 .PHONY: chk clean dist distusage sign signusage
 .PHONY: ospkg ospkgbuild ospkgconfigure ospkgdestroot ospkgextract
