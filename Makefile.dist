@@ -85,10 +85,13 @@ $(BUILDDIR)/src/port/port: | ospkgconfigure
 
 ospkgdestroot: $(DESTDIR)/opt/local/bin/port
 $(DESTDIR)/opt/local/bin/port: | ospkgbuild
+	@if [ "$(shell id -u)" != "0" ]; then \
+		echo "\`make ospkgdestroot' requires administrator privileges"; \
+		exit 1; \
+	fi
 	mkdir -p $(DESTDIR)
-	@echo "\`make install' requires administrator privileges"
-	sudo $(MAKE) -C $(BUILDDIR) install DESTDIR=$(abspath $(DESTDIR))
-	sudo rm -f $(DESTDIR)/opt/local/etc/macports/*.conf
+	$(MAKE) -C $(BUILDDIR) install DESTDIR=$(abspath $(DESTDIR))
+	rm -f $(DESTDIR)/opt/local/etc/macports/*.conf
 
 .PHONY: chk clean dist distusage sign signusage
 .PHONY: ospkg ospkgbuild ospkgconfigure ospkgdestroot ospkgextract
