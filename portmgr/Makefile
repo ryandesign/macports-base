@@ -11,6 +11,7 @@ GIT_ABBREV_COMMIT   := $(if $(GIT_COMMIT),$(shell git rev-list -1 --abbrev-commi
 COMMIT_DATE         := $(if $(GIT_COMMIT),$(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_COMMIT) --),)
 # But this is wrong for -beta* and -rc*
 MP_VERSION          := $(if $(GIT_COMMIT),$(shell git show $(GIT_COMMIT):config/macports_version --),)
+MP_PREFIX           := /opt/local
 VALID_GIT_COMMIT    := $(if $(GIT_COMMIT),,usage)
 ifeq ($(GIT_COMMIT),)
 DISTNAME            := MacPorts
@@ -77,21 +78,21 @@ $(WORKSRCPATH)/configure: | $(DIST_DIR)/$(DISTNAME).tar
 ospkgconfigure: $(BUILD_DIR)/Makefile
 $(BUILD_DIR)/Makefile: | ospkgextract
 	mkdir -p $(BUILD_DIR)
-	cd $(BUILD_DIR) && $(abspath $(WORKSRCPATH))/standard_configure.sh
+	cd $(BUILD_DIR) && $(abspath $(WORKSRCPATH))/standard_configure.sh --prefix=$(MP_PREFIX)
 
 ospkgbuild: $(BUILD_DIR)/src/port/port
 $(BUILD_DIR)/src/port/port: | ospkgconfigure
 	$(MAKE) -C $(BUILD_DIR) -j$(shell sysctl -n hw.activecpu)
 
-ospkgdestroot: $(DEST_ROOT)/opt/local/bin/port
-$(DEST_ROOT)/opt/local/bin/port: | ospkgbuild
+ospkgdestroot: $(DEST_ROOT)$(MP_PREFIX)/bin/port
+$(DEST_ROOT)$(MP_PREFIX)/bin/port: | ospkgbuild
 	@if [ "$(shell id -u)" != "0" ]; then \
 		echo "\`make ospkgdestroot' requires administrator privileges"; \
 		exit 1; \
 	fi
 	mkdir -p $(DEST_ROOT)
 	$(MAKE) -C $(BUILD_DIR) install DEST_ROOT=$(abspath $(DEST_ROOT))
-	rm -f $(DEST_ROOT)/opt/local/etc/macports/*.conf
+	rm -f $(DEST_ROOT)$(MP_PREFIX)/etc/macports/*.conf
 
 .PHONY: chk clean dist sign usage
 .PHONY: ospkg ospkgbuild ospkgconfigure ospkgdestroot ospkgextract
