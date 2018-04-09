@@ -25,7 +25,7 @@ MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
 OS_PKG              := $(DISTNAME)-for-$(MACOS_VERSION).pkg
 WORKSRCPATH         := $(DIST_DIR)/$(DISTNAME)
 BUILD_DIR           := $(WORKSRCPATH)
-DESTDIR             := $(BUILD_DIR)/_destroot
+DEST_ROOT           := $(BUILD_DIR)/_destroot
 
 DISTFILES           := $(addprefix $(DIST_DIR)/$(DISTNAME),.tar.gz .tar.bz2)
 CHKFILES            := $(addsuffix .chk.txt,$(DISTFILES))
@@ -83,15 +83,15 @@ ospkgbuild: $(BUILD_DIR)/src/port/port
 $(BUILD_DIR)/src/port/port: | ospkgconfigure
 	$(MAKE) -C $(BUILD_DIR) -j$(shell sysctl -n hw.activecpu)
 
-ospkgdestroot: $(DESTDIR)/opt/local/bin/port
-$(DESTDIR)/opt/local/bin/port: | ospkgbuild
+ospkgdestroot: $(DEST_ROOT)/opt/local/bin/port
+$(DEST_ROOT)/opt/local/bin/port: | ospkgbuild
 	@if [ "$(shell id -u)" != "0" ]; then \
 		echo "\`make ospkgdestroot' requires administrator privileges"; \
 		exit 1; \
 	fi
-	mkdir -p $(DESTDIR)
-	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DESTDIR))
-	rm -f $(DESTDIR)/opt/local/etc/macports/*.conf
+	mkdir -p $(DEST_ROOT)
+	$(MAKE) -C $(BUILD_DIR) install DEST_ROOT=$(abspath $(DEST_ROOT))
+	rm -f $(DEST_ROOT)/opt/local/etc/macports/*.conf
 
 .PHONY: chk clean dist sign usage
 .PHONY: ospkg ospkgbuild ospkgconfigure ospkgdestroot ospkgextract
