@@ -10,18 +10,18 @@ GPG_ID              =
 VALID_GPG_ID        := $(if $(GPG_ID),,usage)
 GIT_TAG             =
 # But this is wrong for -beta* and -rc*
-DISTVERSION         := $(if $(GIT_TAG),$(shell git show $(GIT_TAG):config/macports_version --),)
+MP_VERSION          := $(if $(GIT_TAG),$(shell git show $(GIT_TAG):config/macports_version --),)
 GIT_ABBREV          := 7
-GIT_ABBREV_COMMIT   := $(if $(DISTVERSION),$(shell git rev-list -1 --abbrev-commit --abbrev=$(GIT_ABBREV) $(GIT_TAG) --),)
-VALID_GIT_TAG       := $(if $(DISTVERSION),,usage)
+GIT_ABBREV_COMMIT   := $(if $(MP_VERSION),$(shell git rev-list -1 --abbrev-commit --abbrev=$(GIT_ABBREV) $(GIT_TAG) --),)
+VALID_GIT_TAG       := $(if $(MP_VERSION),,usage)
 ifeq ($(GIT_TAG),)
 DISTNAME    := MacPorts
 else
-ifeq ($(GIT_TAG),v$(DISTVERSION))
-DISTNAME    := MacPorts-$(DISTVERSION)
+ifeq ($(GIT_TAG),v$(MP_VERSION))
+DISTNAME    := MacPorts-$(MP_VERSION)
 else
 DISTDATE            := $(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_TAG) --)
-DISTNAME    := MacPorts-$(DISTVERSION)-$(DISTDATE)-$(GIT_ABBREV_COMMIT)
+DISTNAME            := MacPorts-$(MP_VERSION)-$(DISTDATE)-$(GIT_ABBREV_COMMIT)
 endif
 endif
 MACOS_VERSION   := $(shell sw_vers -productVersion | cut -d. -f1-2)
