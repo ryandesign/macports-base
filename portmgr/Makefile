@@ -3,9 +3,9 @@ THIS_DIR            := $(dir $(THIS_MAKEFILE))
 TOP_DIR             := $(THIS_DIR)..
 
 DISTDIR             = $(TOP_DIR)/dist
-WORKSRCPATH = $(DISTDIR)/$(DISTNAME)
-BUILDDIR    = $(WORKSRCPATH)
-DESTDIR     = $(BUILDDIR)/_destroot
+WORKSRCPATH         = $(DISTDIR)/$(DISTNAME)
+BUILDDIR            = $(WORKSRCPATH)
+DESTDIR             = $(BUILDDIR)/_destroot
 GPG_ID              =
 VALID_GPG_ID        := $(if $(GPG_ID),,usage)
 GIT_TAG             =
@@ -15,20 +15,20 @@ GIT_ABBREV          := 7
 GIT_ABBREV_COMMIT   := $(if $(MP_VERSION),$(shell git rev-list -1 --abbrev-commit --abbrev=$(GIT_ABBREV) $(GIT_TAG) --),)
 VALID_GIT_TAG       := $(if $(MP_VERSION),,usage)
 ifeq ($(GIT_TAG),)
-DISTNAME    := MacPorts
+DISTNAME            := MacPorts
 else
 ifeq ($(GIT_TAG),v$(MP_VERSION))
-DISTNAME    := MacPorts-$(MP_VERSION)
+DISTNAME            := MacPorts-$(MP_VERSION)
 else
 COMMIT_DATE         := $(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_TAG) --)
 DISTNAME            := MacPorts-$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT)
 endif
 endif
-MACOS_VERSION   := $(shell sw_vers -productVersion | cut -d. -f1-2)
-OS_PKG          := $(DISTNAME)-for-$(MACOS_VERSION).pkg
-DISTFILES   := $(addprefix $(DISTDIR)/$(DISTNAME),.tar.gz .tar.bz2)
-CHKFILES    := $(addsuffix .chk.txt,$(DISTFILES))
-GPGFILES    := $(addsuffix .asc,$(DISTFILES))
+MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
+OS_PKG              := $(DISTNAME)-for-$(MACOS_VERSION).pkg
+DISTFILES           := $(addprefix $(DISTDIR)/$(DISTNAME),.tar.gz .tar.bz2)
+CHKFILES            := $(addsuffix .chk.txt,$(DISTFILES))
+GPGFILES            := $(addsuffix .asc,$(DISTFILES))
 
 USAGE_MAKE_CMD  = make $(if $(filter-out Makefile,$(THIS_MAKEFILE)),-f $(THIS_MAKEFILE) ,)$(or $(filter-out usage,$(MAKECMDGOALS)),dist)
 
