@@ -1,18 +1,19 @@
+THIS_MAKEFILE       := $(lastword $(MAKEFILE_LIST))
+THIS_DIR            := $(dir $(THIS_MAKEFILE))
+TOP_DIR             := $(THIS_DIR)..
 
-DISTDIR     = dist
+DISTDIR             = $(TOP_DIR)/dist
 WORKSRCPATH = $(DISTDIR)/$(DISTNAME)
 BUILDDIR    = $(WORKSRCPATH)
 DESTDIR     = $(BUILDDIR)/_destroot
 DISTGPGID   =
-DISTGPGIDCHK := $(if $(DISTGPGID),,signusage)
+DISTGPGIDCHK        := $(if $(DISTGPGID),,usage)
 DISTTAG     =
-DISTGOALS   := $(or $(MAKECMDGOALS),dist)
-SIGNGOALS   := $(or $(MAKECMDGOALS),sign)
 # But this is wrong for -beta* and -rc*
 DISTVERSION := $(if $(DISTTAG),$(shell git show $(DISTTAG):config/macports_version --),)
 GIT_ABBREV          := 7
 GIT_ABBREV_COMMIT   := $(if $(DISTVERSION),$(shell git rev-list -1 --abbrev-commit --abbrev=$(GIT_ABBREV) $(DISTTAG) --),)
-VALID_DISTTAG := $(if $(DISTVERSION),,distusage)
+VALID_DISTTAG       := $(if $(DISTVERSION),,usage)
 ifeq ($(DISTTAG),)
 DISTNAME    := MacPorts
 else
@@ -29,12 +30,14 @@ DISTFILES   := $(addprefix $(DISTDIR)/$(DISTNAME),.tar.gz .tar.bz2)
 CHKFILES    := $(addsuffix .chk.txt,$(DISTFILES))
 GPGFILES    := $(addsuffix .asc,$(DISTFILES))
 
-distusage:
-	@echo "Usage: \`make -f $(lastword $(MAKEFILE_LIST)) $(DISTGOALS) DISTTAG=v2.4.2' or \`make -f $(lastword $(MAKEFILE_LIST)) $(DISTGOALS) DISTTAG=0123456789abcdef'"
-	@exit 1
+USAGE_MAKE_CMD  = make $(if $(filter-out Makefile,$(THIS_MAKEFILE)),-f $(THIS_MAKEFILE) ,)$(or $(filter-out usage,$(MAKECMDGOALS)),dist)
 
-signusage:
-	@echo "Usage: \`make -f $(lastword $(MAKEFILE_LIST)) $(SIGNGOALS) DISTGPGID=<handle>@macports.org DISTTAG=...'"
+usage:
+ifeq ($(filter sign,$(MAKECMDGOALS)),)
+	@echo "Usage: \`$(USAGE_MAKE_CMD) DISTTAG=v2.4.2' or \`$(USAGE_MAKE_CMD) DISTTAG=0123456789abcdef'"
+else
+	@echo "Usage: \`$(USAGE_MAKE_CMD) DISTGPGID=<handle>@macports.org DISTTAG=...'"
+endif
 	@exit 1
 
 clean:
@@ -93,5 +96,5 @@ $(DESTDIR)/opt/local/bin/port: | ospkgbuild
 	$(MAKE) -C $(BUILDDIR) install DESTDIR=$(abspath $(DESTDIR))
 	rm -f $(DESTDIR)/opt/local/etc/macports/*.conf
 
-.PHONY: chk clean dist distusage sign signusage
+.PHONY: chk clean dist sign usage
 .PHONY: ospkg ospkgbuild ospkgconfigure ospkgdestroot ospkgextract
