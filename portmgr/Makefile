@@ -20,8 +20,8 @@ else
 ifeq ($(GIT_TAG),v$(MP_VERSION))
 DISTNAME    := MacPorts-$(MP_VERSION)
 else
-DISTDATE            := $(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_TAG) --)
-DISTNAME            := MacPorts-$(MP_VERSION)-$(DISTDATE)-$(GIT_ABBREV_COMMIT)
+COMMIT_DATE         := $(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_TAG) --)
+DISTNAME            := MacPorts-$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT)
 endif
 endif
 MACOS_VERSION   := $(shell sw_vers -productVersion | cut -d. -f1-2)
