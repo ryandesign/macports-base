@@ -148,15 +148,15 @@ To generate the checksum file, use the `chk` target:
 
 The release should be signed with a detached GPG signature in order to allow
 cryptographic verification. To do this automatically, use the `sign` target and
-the `DISTGPGID` argument. The value specifies a key ID either in hexadecimal
+the `GPG_ID` argument. The value specifies a key ID either in hexadecimal
 format or an email address matching exactly one key. See
 [HOW TO SPECIFY A USER ID in gpg(1)][gpg-user-id] for details.
 
-    make sign DISTGPGID=<handle>@macports.org GIT_TAG=v2.0.0
+    make sign GPG_ID=<handle>@macports.org GIT_TAG=v2.0.0
 
 To do everything at once:
 
-    make dist chk sign DISTGPGID=<handle>@macports.org GIT_TAG=v2.0.0
+    make dist chk sign GPG_ID=<handle>@macports.org GIT_TAG=v2.0.0
 
 These tarballs and the checksums are uploaded to the
 https://distfiles.macports.org/MacPorts/ directory. At present, this must be

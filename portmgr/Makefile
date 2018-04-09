@@ -6,8 +6,8 @@ DISTDIR             = $(TOP_DIR)/dist
 WORKSRCPATH = $(DISTDIR)/$(DISTNAME)
 BUILDDIR    = $(WORKSRCPATH)
 DESTDIR     = $(BUILDDIR)/_destroot
-DISTGPGID   =
-DISTGPGIDCHK        := $(if $(DISTGPGID),,usage)
+GPG_ID              =
+VALID_GPG_ID        := $(if $(GPG_ID),,usage)
 GIT_TAG             =
 # But this is wrong for -beta* and -rc*
 DISTVERSION         := $(if $(GIT_TAG),$(shell git show $(GIT_TAG):config/macports_version --),)
@@ -36,7 +36,7 @@ usage:
 ifeq ($(filter sign,$(MAKECMDGOALS)),)
 	@echo "Usage: \`$(USAGE_MAKE_CMD) GIT_TAG=v2.4.2' or \`$(USAGE_MAKE_CMD) GIT_TAG=0123456789abcdef'"
 else
-	@echo "Usage: \`$(USAGE_MAKE_CMD) DISTGPGID=<handle>@macports.org GIT_TAG=...'"
+	@echo "Usage: \`$(USAGE_MAKE_CMD) GPG_ID=<handle>@macports.org GIT_TAG=...'"
 endif
 	@exit 1
 
@@ -65,8 +65,8 @@ $(DISTDIR)/$(DISTNAME).chk.txt: $(VALID_GIT_TAG) $(CHKFILES)
 
 chk: $(DISTDIR)/$(DISTNAME).chk.txt
 
-%.asc: $(DISTGPGIDCHK) %
-	gpg --sign --detach-sig --armor --local-user $(DISTGPGID) $<
+%.asc: $(VALID_GPG_ID) %
+	gpg --sign --detach-sig --armor --local-user $(GPG_ID) $<
 
 sign: $(VALID_GIT_TAG) $(GPGFILES)
 
