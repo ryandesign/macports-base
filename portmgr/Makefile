@@ -24,8 +24,8 @@ endif
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
 OS_PKG              := $(DISTNAME)-for-$(MACOS_VERSION).pkg
 WORKSRCPATH         := $(DIST_DIR)/$(DISTNAME)
-BUILDDIR            := $(WORKSRCPATH)
-DESTDIR             := $(BUILDDIR)/_destroot
+BUILD_DIR           := $(WORKSRCPATH)
+DESTDIR             := $(BUILD_DIR)/_destroot
 
 DISTFILES           := $(addprefix $(DIST_DIR)/$(DISTNAME),.tar.gz .tar.bz2)
 CHKFILES            := $(addsuffix .chk.txt,$(DISTFILES))
@@ -74,14 +74,14 @@ ospkgextract: $(WORKSRCPATH)/configure
 $(WORKSRCPATH)/configure: | $(DIST_DIR)/$(DISTNAME).tar
 	tar -C $(DIST_DIR) -xf $|
 
-ospkgconfigure: $(BUILDDIR)/Makefile
-$(BUILDDIR)/Makefile: | ospkgextract
-	mkdir -p $(BUILDDIR)
-	cd $(BUILDDIR) && $(abspath $(WORKSRCPATH))/standard_configure.sh
+ospkgconfigure: $(BUILD_DIR)/Makefile
+$(BUILD_DIR)/Makefile: | ospkgextract
+	mkdir -p $(BUILD_DIR)
+	cd $(BUILD_DIR) && $(abspath $(WORKSRCPATH))/standard_configure.sh
 
-ospkgbuild: $(BUILDDIR)/src/port/port
-$(BUILDDIR)/src/port/port: | ospkgconfigure
-	$(MAKE) -C $(BUILDDIR) -j$(shell sysctl -n hw.activecpu)
+ospkgbuild: $(BUILD_DIR)/src/port/port
+$(BUILD_DIR)/src/port/port: | ospkgconfigure
+	$(MAKE) -C $(BUILD_DIR) -j$(shell sysctl -n hw.activecpu)
 
 ospkgdestroot: $(DESTDIR)/opt/local/bin/port
 $(DESTDIR)/opt/local/bin/port: | ospkgbuild
@@ -90,7 +90,7 @@ $(DESTDIR)/opt/local/bin/port: | ospkgbuild
 		exit 1; \
 	fi
 	mkdir -p $(DESTDIR)
-	$(MAKE) -C $(BUILDDIR) install DESTDIR=$(abspath $(DESTDIR))
+	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DESTDIR))
 	rm -f $(DESTDIR)/opt/local/etc/macports/*.conf
 
 .PHONY: chk clean dist sign usage
