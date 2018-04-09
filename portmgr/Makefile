@@ -8,19 +8,19 @@ BUILDDIR    = $(WORKSRCPATH)
 DESTDIR     = $(BUILDDIR)/_destroot
 DISTGPGID   =
 DISTGPGIDCHK        := $(if $(DISTGPGID),,usage)
-DISTTAG     =
+GIT_TAG             =
 # But this is wrong for -beta* and -rc*
-DISTVERSION := $(if $(DISTTAG),$(shell git show $(DISTTAG):config/macports_version --),)
+DISTVERSION         := $(if $(GIT_TAG),$(shell git show $(GIT_TAG):config/macports_version --),)
 GIT_ABBREV          := 7
-GIT_ABBREV_COMMIT   := $(if $(DISTVERSION),$(shell git rev-list -1 --abbrev-commit --abbrev=$(GIT_ABBREV) $(DISTTAG) --),)
-VALID_DISTTAG       := $(if $(DISTVERSION),,usage)
-ifeq ($(DISTTAG),)
+GIT_ABBREV_COMMIT   := $(if $(DISTVERSION),$(shell git rev-list -1 --abbrev-commit --abbrev=$(GIT_ABBREV) $(GIT_TAG) --),)
+VALID_GIT_TAG       := $(if $(DISTVERSION),,usage)
+ifeq ($(GIT_TAG),)
 DISTNAME    := MacPorts
 else
-ifeq ($(DISTTAG),v$(DISTVERSION))
+ifeq ($(GIT_TAG),v$(DISTVERSION))
 DISTNAME    := MacPorts-$(DISTVERSION)
 else
-DISTDATE    := $(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(DISTTAG) --)
+DISTDATE            := $(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_TAG) --)
 DISTNAME    := MacPorts-$(DISTVERSION)-$(DISTDATE)-$(GIT_ABBREV_COMMIT)
 endif
 endif
@@ -34,18 +34,18 @@ USAGE_MAKE_CMD  = make $(if $(filter-out Makefile,$(THIS_MAKEFILE)),-f $(THIS_MA
 
 usage:
 ifeq ($(filter sign,$(MAKECMDGOALS)),)
-	@echo "Usage: \`$(USAGE_MAKE_CMD) DISTTAG=v2.4.2' or \`$(USAGE_MAKE_CMD) DISTTAG=0123456789abcdef'"
+	@echo "Usage: \`$(USAGE_MAKE_CMD) GIT_TAG=v2.4.2' or \`$(USAGE_MAKE_CMD) GIT_TAG=0123456789abcdef'"
 else
-	@echo "Usage: \`$(USAGE_MAKE_CMD) DISTGPGID=<handle>@macports.org DISTTAG=...'"
+	@echo "Usage: \`$(USAGE_MAKE_CMD) DISTGPGID=<handle>@macports.org GIT_TAG=...'"
 endif
 	@exit 1
 
 clean:
 	rm -rf $(DISTDIR)
 
-$(DISTDIR)/$(DISTNAME).tar: $(VALID_DISTTAG)
+$(DISTDIR)/$(DISTNAME).tar: $(VALID_GIT_TAG)
 	mkdir -p $(DISTDIR)
-	git archive --format=tar --prefix=$(DISTNAME)/ $(DISTTAG) --output=$@
+	git archive --format=tar --prefix=$(DISTNAME)/ $(GIT_TAG) --output=$@
 
 %.gz: %
 	gzip -cn9 < $< > $@
@@ -55,7 +55,7 @@ $(DISTDIR)/$(DISTNAME).tar: $(VALID_DISTTAG)
 
 dist: $(DISTFILES)
 
-$(DISTDIR)/$(DISTNAME).chk.txt: $(VALID_DISTTAG) $(CHKFILES)
+$(DISTDIR)/$(DISTNAME).chk.txt: $(VALID_GIT_TAG) $(CHKFILES)
 	cat $(sort $^) > $@
 
 %.chk.txt: %
@@ -68,7 +68,7 @@ chk: $(DISTDIR)/$(DISTNAME).chk.txt
 %.asc: $(DISTGPGIDCHK) %
 	gpg --sign --detach-sig --armor --local-user $(DISTGPGID) $<
 
-sign: $(VALID_DISTTAG) $(GPGFILES)
+sign: $(VALID_GIT_TAG) $(GPGFILES)
 
 ospkg: $(OS_PKG)
 $(OS_PKG): | ospkgdestroot

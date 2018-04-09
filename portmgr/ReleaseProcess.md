@@ -138,13 +138,13 @@ They are named with the following naming convention:
 
     MacPorts-2.0.0.tar.{bz2,gz} (base repository, corresponding to tag v2.0.0)
 
-To generate these tarballs, use the `dist` target in the top level directory:
+To generate these tarballs, use the `dist` target in the portmgr directory:
 
-    make -f Makefile.dist dist DISTTAG=v2.0.0
+    make dist GIT_TAG=v2.0.0
 
 To generate the checksum file, use the `chk` target:
 
-    make -f Makefile.dist chk DISTTAG=v2.0.0
+    make chk GIT_TAG=v2.0.0
 
 The release should be signed with a detached GPG signature in order to allow
 cryptographic verification. To do this automatically, use the `sign` target and
@@ -152,11 +152,11 @@ the `DISTGPGID` argument. The value specifies a key ID either in hexadecimal
 format or an email address matching exactly one key. See
 [HOW TO SPECIFY A USER ID in gpg(1)][gpg-user-id] for details.
 
-    make -f Makefile.dist sign DISTGPGID=<handle>@macports.org DISTTAG=v2.0.0
+    make sign DISTGPGID=<handle>@macports.org GIT_TAG=v2.0.0
 
 To do everything at once:
 
-    make -f Makefile.dist dist chk sign DISTGPGID=<handle>@macports.org DISTTAG=v2.0.0
+    make dist chk sign DISTGPGID=<handle>@macports.org GIT_TAG=v2.0.0
 
 These tarballs and the checksums are uploaded to the
 https://distfiles.macports.org/MacPorts/ directory. At present, this must be

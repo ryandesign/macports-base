@@ -119,7 +119,7 @@ distclean::
 	$(MAKE) -f $(srcdir)/Makefile.dist clean
 
 dist:
-	$(MAKE) -f $(srcdir)/Makefile.dist dist
+	$(MAKE) -f $(srcdir)/portmgr/Makefile dist
 
 
 docs:
