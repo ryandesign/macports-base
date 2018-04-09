@@ -2,50 +2,47 @@ THIS_MAKEFILE       := $(lastword $(MAKEFILE_LIST))
 THIS_DIR            := $(dir $(THIS_MAKEFILE))
 TOP_DIR             := $(THIS_DIR)..
 
-DISTDIR             = $(TOP_DIR)/dist
-WORKSRCPATH         = $(DISTDIR)/$(DISTNAME)
-BUILDDIR            = $(WORKSRCPATH)
-DESTDIR             = $(BUILDDIR)/_destroot
-GPG_ID              =
+DIST_DIR            := $(TOP_DIR)/dist
+GPG_ID              :=
 VALID_GPG_ID        := $(if $(GPG_ID),,usage)
-GIT_TAG             =
+GIT_TAG             :=
+GIT_COMMIT          := $(if $(GIT_TAG),$(shell git rev-list -1 $(GIT_TAG) --),)
+GIT_ABBREV_COMMIT   := $(if $(GIT_COMMIT),$(shell git rev-list -1 --abbrev-commit --abbrev=7 $(GIT_COMMIT) --),)
+COMMIT_DATE         := $(if $(GIT_COMMIT),$(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_COMMIT) --),)
 # But this is wrong for -beta* and -rc*
-MP_VERSION          := $(if $(GIT_TAG),$(shell git show $(GIT_TAG):config/macports_version --),)
-GIT_ABBREV          := 7
-GIT_ABBREV_COMMIT   := $(if $(MP_VERSION),$(shell git rev-list -1 --abbrev-commit --abbrev=$(GIT_ABBREV) $(GIT_TAG) --),)
-VALID_GIT_TAG       := $(if $(MP_VERSION),,usage)
-ifeq ($(GIT_TAG),)
+MP_VERSION          := $(if $(GIT_COMMIT),$(shell git show $(GIT_COMMIT):config/macports_version --),)
+VALID_GIT_COMMIT    := $(if $(GIT_COMMIT),,usage)
+ifeq ($(GIT_COMMIT),)
 DISTNAME            := MacPorts
 else
 ifeq ($(GIT_TAG),v$(MP_VERSION))
 DISTNAME            := MacPorts-$(MP_VERSION)
 else
-COMMIT_DATE         := $(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_TAG) --)
 DISTNAME            := MacPorts-$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT)
 endif
 endif
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
 OS_PKG              := $(DISTNAME)-for-$(MACOS_VERSION).pkg
-DISTFILES           := $(addprefix $(DISTDIR)/$(DISTNAME),.tar.gz .tar.bz2)
+WORKSRCPATH         := $(DIST_DIR)/$(DISTNAME)
+BUILDDIR            := $(WORKSRCPATH)
+DESTDIR             := $(BUILDDIR)/_destroot
+
+DISTFILES           := $(addprefix $(DIST_DIR)/$(DISTNAME),.tar.gz .tar.bz2)
 CHKFILES            := $(addsuffix .chk.txt,$(DISTFILES))
 GPGFILES            := $(addsuffix .asc,$(DISTFILES))
 
 USAGE_MAKE_CMD  = make $(if $(filter-out Makefile,$(THIS_MAKEFILE)),-f $(THIS_MAKEFILE) ,)$(or $(filter-out usage,$(MAKECMDGOALS)),dist)
 
 usage:
-ifeq ($(filter sign,$(MAKECMDGOALS)),)
-	@echo "Usage: \`$(USAGE_MAKE_CMD) GIT_TAG=v2.4.2' or \`$(USAGE_MAKE_CMD) GIT_TAG=0123456789abcdef'"
-else
-	@echo "Usage: \`$(USAGE_MAKE_CMD) GPG_ID=<handle>@macports.org GIT_TAG=...'"
-endif
+	@echo "Usage: \`$(USAGE_MAKE_CMD) $(if $(filter sign,$(MAKECMDGOALS)),GPG_ID=<handle>@macports.org ,)( GIT_TAG=v2.4.2 | GIT_COMMIT=0123456789abcdef )'"
 	@exit 1
 
 clean:
-	rm -rf $(DISTDIR)
+	rm -rf $(DIST_DIR)
 
-$(DISTDIR)/$(DISTNAME).tar: $(VALID_GIT_TAG)
-	mkdir -p $(DISTDIR)
-	git archive --format=tar --prefix=$(DISTNAME)/ $(GIT_TAG) --output=$@
+$(DIST_DIR)/$(DISTNAME).tar: $(VALID_GIT_COMMIT)
+	mkdir -p $(DIST_DIR)
+	git -C $(TOP_DIR) archive --format=tar --prefix=$(DISTNAME)/ $(GIT_COMMIT) --output=$(abspath $@)
 
 %.gz: %
 	gzip -cn9 < $< > $@
@@ -55,7 +52,7 @@ $(DISTDIR)/$(DISTNAME).tar: $(VALID_GIT_TAG)
 
 dist: $(DISTFILES)
 
-$(DISTDIR)/$(DISTNAME).chk.txt: $(VALID_GIT_TAG) $(CHKFILES)
+$(DIST_DIR)/$(DISTNAME).chk.txt: $(VALID_GIT_COMMIT) $(CHKFILES)
 	cat $(sort $^) > $@
 
 %.chk.txt: %
@@ -63,19 +60,19 @@ $(DISTDIR)/$(DISTNAME).chk.txt: $(VALID_GIT_TAG) $(CHKFILES)
 		openssl dgst -$$type $(notdir $<); \
 	done >> $(notdir $@)
 
-chk: $(DISTDIR)/$(DISTNAME).chk.txt
+chk: $(DIST_DIR)/$(DISTNAME).chk.txt
 
 %.asc: $(VALID_GPG_ID) %
 	gpg --sign --detach-sig --armor --local-user $(GPG_ID) $<
 
-sign: $(VALID_GIT_TAG) $(GPGFILES)
+sign: $(VALID_GIT_COMMIT) $(GPGFILES)
 
 ospkg: $(OS_PKG)
 $(OS_PKG): | ospkgdestroot
 
 ospkgextract: $(WORKSRCPATH)/configure
-$(WORKSRCPATH)/configure: | $(DISTDIR)/$(DISTNAME).tar
-	tar -C $(DISTDIR) -xf $|
+$(WORKSRCPATH)/configure: | $(DIST_DIR)/$(DISTNAME).tar
+	tar -C $(DIST_DIR) -xf $|
 
 ospkgconfigure: $(BUILDDIR)/Makefile
 $(BUILDDIR)/Makefile: | ospkgextract
