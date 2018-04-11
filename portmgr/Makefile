@@ -92,7 +92,7 @@ $(DEST_ROOT)$(MP_PREFIX)/bin/port: | ospkgbuild
 		exit 1; \
 	fi
 	mkdir -p $(DEST_ROOT)
-	$(MAKE) -C $(BUILD_DIR) install DEST_ROOT=$(abspath $(DEST_ROOT))
+	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DEST_ROOT))
 	rm -f $(DEST_ROOT)$(MP_PREFIX)/etc/macports/*.conf
 # TODO: make .turd files
 # TODO: other steps done by MacPorts Portfile
