@@ -33,6 +33,7 @@ PKGBUILD            = /usr/bin/pkgbuild
 PACKAGEMAKER_PATH   = $(or $(wildcard /Applications/PackageMaker.app),$(wildcard /Developer/Applications/PackageMaker.app),/Applications/PackageMaker.app)
 PACKAGEMAKER        = $(PACKAGEMAKER_PATH)/Contents/MacOS/PackageMaker
 PKG_TYPE            = flat
+PKG_IDENTIFIER      = org.macports.MacPorts
 
 DISTFILES           := $(addprefix $(DIST_DIR)/$(DISTNAME),.tar.gz .tar.bz2)
 CHKFILES            := $(addsuffix .chk.txt,$(DISTFILES))
@@ -74,12 +75,15 @@ chk: $(DIST_DIR)/$(DISTNAME).chk.txt
 
 sign: $(VALID_GIT_COMMIT) $(GPGFILES)
 
+$(DIST_DIR)/PackageInfo:
+	echo "<pkg-info relocatable=\"false\" useHFSPlusCompression=\"true\">" > $@
+	echo "</pkg-info>" >> $@
+
 ospkg: $(DIST_DIR)/$(OS_PKG)
-$(DIST_DIR)/$(OS_PKG): | ospkgdestroot $(if $(filter flat,$(PKG_TYPE)),$(PKGBUILD),$(PACKAGEMAKER))
+$(DIST_DIR)/$(OS_PKG): | ospkgdestroot $(if $(filter flat,$(PKG_TYPE)),$(PKGBUILD) $(DIST_DIR)/PackageInfo,$(PACKAGEMAKER))
 ifeq ($(PKG_TYPE),flat)
-	$(PKGBUILD) --root $(DEST_ROOT) --install-location / --identifier org.macports.MacPorts --version $(PKG_VERSION) $@
+	$(PKGBUILD) --info $(DIST_DIR)/PackageInfo --root $(DEST_ROOT)$(MP_PREFIX) --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER) --version $(PKG_VERSION) $@
 #--scripts $(PKG_SCRIPTS)
-#--info .../PackageInfo
 else
 #PackageMaker method
 endif
