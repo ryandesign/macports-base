@@ -86,13 +86,8 @@ $(BUILD_DIR)/src/port/port: | ospkgconfigure
 
 ospkgdestroot: $(DEST_ROOT)$(MP_PREFIX)/bin/port
 $(DEST_ROOT)$(MP_PREFIX)/bin/port: | ospkgbuild
-# TODO: don't require root
-	@if [ "$(shell id -u)" != "0" ]; then \
-		echo "\`make ospkgdestroot' requires administrator privileges (use sudo)"; \
-		exit 1; \
-	fi
 	mkdir -p $(DEST_ROOT)
-	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DEST_ROOT))
+	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DEST_ROOT)) DSTGRP=$(shell id -gn) DSTUSR=$(shell id -un)
 	rm -f $(DEST_ROOT)$(MP_PREFIX)/etc/macports/*.conf
 	find $(DEST_ROOT) -type d -empty -print0 | xargs -0 -I % -n 1 touch "%/.turd_MacPorts"
 # TODO: other steps done by MacPorts Portfile
