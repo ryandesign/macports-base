@@ -94,7 +94,7 @@ $(DEST_ROOT)$(MP_PREFIX)/bin/port: | ospkgbuild
 	mkdir -p $(DEST_ROOT)
 	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DEST_ROOT))
 	rm -f $(DEST_ROOT)$(MP_PREFIX)/etc/macports/*.conf
-# TODO: make .turd files
+	find $(DEST_ROOT) -type d -empty -print0 | xargs -0 -I % -n 1 touch "%/.turd_MacPorts"
 # TODO: other steps done by MacPorts Portfile
 
 .PHONY: chk clean dist sign usage
