@@ -24,9 +24,15 @@ endif
 endif
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
 OS_PKG              := $(DISTNAME)-for-$(MACOS_VERSION).pkg
+PKG_VERSION         := $(if $(MP_VERSION),0.$(MP_VERSION).0.0.0.0.0,0)
 WORKSRCPATH         := $(DIST_DIR)/$(DISTNAME)
 BUILD_DIR           := $(WORKSRCPATH)
 DEST_ROOT           := $(BUILD_DIR)/_destroot
+
+PKGBUILD            = /usr/bin/pkgbuild
+PACKAGEMAKER_PATH   = $(or $(wildcard /Applications/PackageMaker.app),$(wildcard /Developer/Applications/PackageMaker.app),/Applications/PackageMaker.app)
+PACKAGEMAKER        = $(PACKAGEMAKER_PATH)/Contents/MacOS/PackageMaker
+PKG_TYPE            = flat
 
 DISTFILES           := $(addprefix $(DIST_DIR)/$(DISTNAME),.tar.gz .tar.bz2)
 CHKFILES            := $(addsuffix .chk.txt,$(DISTFILES))
@@ -68,8 +74,15 @@ chk: $(DIST_DIR)/$(DISTNAME).chk.txt
 
 sign: $(VALID_GIT_COMMIT) $(GPGFILES)
 
-ospkg: $(OS_PKG)
-$(OS_PKG): | ospkgdestroot
+ospkg: $(DIST_DIR)/$(OS_PKG)
+$(DIST_DIR)/$(OS_PKG): | ospkgdestroot $(if $(filter flat,$(PKG_TYPE)),$(PKGBUILD),$(PACKAGEMAKER))
+ifeq ($(PKG_TYPE),flat)
+	$(PKGBUILD) --root $(DEST_ROOT) --install-location / --identifier org.macports.MacPorts --version $(PKG_VERSION) $@
+#--scripts $(PKG_SCRIPTS)
+#--info .../PackageInfo
+else
+#PackageMaker method
+endif
 
 ospkgextract: $(WORKSRCPATH)/configure
 $(WORKSRCPATH)/configure: | $(DIST_DIR)/$(DISTNAME).tar
