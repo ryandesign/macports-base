@@ -1,6 +1,7 @@
 THIS_MAKEFILE       := $(lastword $(MAKEFILE_LIST))
 THIS_DIR            := $(dir $(THIS_MAKEFILE))
 TOP_DIR             := $(THIS_DIR)..
+SPACE               := $(subst ,, )
 
 DIST_DIR            := $(TOP_DIR)/dist
 GPG_ID              :=
@@ -22,8 +23,14 @@ else
 DISTNAME            := MacPorts-$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT)
 endif
 endif
+
+# $(call os_pkg,10.9)
+define os_pkg
+$(DISTNAME)-for-$(1).pkg
+endef
+
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
-OS_PKG              := $(DISTNAME)-for-$(MACOS_VERSION).pkg
+OS_PKG              := $(call os_pkg,$(MACOS_VERSION))
 PKG_VERSION         := $(if $(MP_VERSION),0.$(MP_VERSION).0.0.0.0.0,0)
 WORKSRCPATH         := $(DIST_DIR)/$(DISTNAME)
 BUILD_DIR           := $(WORKSRCPATH)
@@ -40,6 +47,18 @@ CHKFILES            := $(addsuffix .chk.txt,$(DISTFILES))
 GPGFILES            := $(addsuffix .asc,$(DISTFILES))
 
 USAGE_MAKE_CMD  = make $(if $(filter-out Makefile,$(THIS_MAKEFILE)),-f $(THIS_MAKEFILE) ,)$(or $(filter-out usage,$(MAKECMDGOALS)),dist)
+
+# Keep these lists sorted in ascending order.
+OLD_INSTALLER_MACOS_VERSIONS    := 10.4 10.5
+NEW_INSTALLER_MACOS_VERSIONS    := 10.6 10.7 10.8 10.9 10.10 10.11 10.12 10.13
+
+OLD_OS_PKGS                     = $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call os_pkg,$(MACOS_VERSION)))
+NEW_OS_PKGS                     = $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call os_pkg,$(MACOS_VERSION)))
+
+# $(call next_version,10.8 10.9) --> returns 10.10
+define next_version
+$(shell V=$(lastword $(1)) && echo $${V%%.*}.$$(($${V#*.} + 1)))
+endef
 
 usage:
 	@echo "Usage: \`$(USAGE_MAKE_CMD) $(if $(filter sign,$(MAKECMDGOALS)),GPG_ID=<handle>@macports.org ,)( GIT_TAG=v2.4.3 | GIT_COMMIT=a393413 )'"
@@ -75,14 +94,32 @@ chk: $(DIST_DIR)/$(DISTNAME).chk.txt
 
 sign: $(VALID_GIT_COMMIT) $(GPGFILES)
 
-$(DIST_DIR)/PackageInfo:
-	echo "<pkg-info relocatable=\"false\" useHFSPlusCompression=\"true\">" > $@
-	echo "</pkg-info>" >> $@
+$(DIST_DIR)/packageinfo.xml:
+	printf '<?xml version="1.0" encoding="utf-8"?>\n' > $@
+	printf '<pkg-info relocatable="false" useHFSPlusCompression="true">\n' >> $@
+	printf '</pkg-info>\n' >> $@
+
+$(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
+	printf '<?xml version="1.0" encoding="utf-8"?>\n' > $@
+	printf '<installer-gui-script minSpecVersion="1">\n' >> $@
+	printf '    <title>MacPorts</title>\n' >> $@
+	printf '    <options customize="always"/>\n' >> $@
+	printf '    <allowed-os-versions>\n' >> $@
+	printf '        <os-version min="$(firstword $(NEW_INSTALLER_MACOS_VERSIONS))"/>\n' >> $@
+	printf '        <os-version before="$(call next_version,$(NEW_INSTALLER_MACOS_VERSIONS))"/>\n' >> $@
+	printf '    </allowed-os-versions>\n' >> $@
+#	printf '    <background file="background.tiff" mime-type="image/tiff" alignment="bottomleft" scaling="none"/>\n' >> $@
+#	printf '    <welcome mime-type="text/html" file="Welcome.html"/>\n' >> $@
+	printf '    <choices-outline>\n' >> $@
+	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'        <line choice="MacPorts-for-$(MACOS_VERSION)"/>') >> $@;
+	printf '    </choices-outline>\n' >> $@
+	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'    <choice id="MacPorts-for-$(MACOS_VERSION)" title="MacPorts $(MP_VERSION) for $(MACOS_VERSION)" description="MacPorts $(MP_VERSION) for $(MACOS_VERSION)" visible="true" enabled="my.choice.selected" selected="(my.target.systemVersion.ProductVersion+&quot;.&quot;).indexOf(&quot;$(MACOS_VERSION).&quot;)==0">' '        <pkg-ref id="MacPorts-for-$(MACOS_VERSION)">$(call os_pkg,$(MACOS_VERSION))</pkg-ref>' '    </choice>') >> $@;
+	printf '</installer-gui-script>\n' >> $@
 
 ospkg: $(DIST_DIR)/$(OS_PKG)
-$(DIST_DIR)/$(OS_PKG): | ospkgdestroot $(if $(filter flat,$(PKG_TYPE)),$(PKGBUILD) $(DIST_DIR)/PackageInfo,$(PACKAGEMAKER))
+$(DIST_DIR)/$(OS_PKG): | ospkgdestroot $(if $(filter flat,$(PKG_TYPE)),$(PKGBUILD) $(DIST_DIR)/packageinfo.xml,$(PACKAGEMAKER))
 ifeq ($(PKG_TYPE),flat)
-	$(PKGBUILD) --info $(DIST_DIR)/PackageInfo --root $(DEST_ROOT)$(MP_PREFIX) --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER) --version $(PKG_VERSION) $@
+	$(PKGBUILD) --info $(DIST_DIR)/packageinfo.xml --root $(DEST_ROOT)$(MP_PREFIX) --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER) --version $(PKG_VERSION) $@
 #--scripts $(PKG_SCRIPTS)
 else
 #PackageMaker method
@@ -109,5 +146,10 @@ $(DEST_ROOT)$(MP_PREFIX)/bin/port: | ospkgbuild
 	find $(DEST_ROOT) -type d -empty -print0 | xargs -0 -I % -n 1 touch "%/.turd_MacPorts"
 # TODO: other steps done by MacPorts Portfile
 
+newinstaller: $(NEW_OS_PKGS)
+
+oldinstaller: $(OLD_OS_PKGS)
+
 .PHONY: chk clean dist sign usage
 .PHONY: ospkg ospkgbuild ospkgconfigure ospkgdestroot ospkgextract
+.PHONY: newinstaller oldinstaller
