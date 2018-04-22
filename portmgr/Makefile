@@ -37,6 +37,7 @@ BUILD_DIR           := $(WORKSRCPATH)
 DEST_ROOT           := $(BUILD_DIR)/_destroot
 
 PKGBUILD            = /usr/bin/pkgbuild
+PRODUCTBUILD        = /usr/bin/productbuild
 PACKAGEMAKER_PATH   = $(or $(wildcard /Applications/PackageMaker.app),$(wildcard /Developer/Applications/PackageMaker.app),/Applications/PackageMaker.app)
 PACKAGEMAKER        = $(PACKAGEMAKER_PATH)/Contents/MacOS/PackageMaker
 PKG_TYPE            = flat
@@ -54,6 +55,8 @@ NEW_INSTALLER_MACOS_VERSIONS    := 10.6 10.7 10.8 10.9 10.10 10.11 10.12 10.13
 
 OLD_OS_PKGS                     = $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call os_pkg,$(MACOS_VERSION)))
 NEW_OS_PKGS                     = $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call os_pkg,$(MACOS_VERSION)))
+
+NEW_INSTALLER                   := $(DIST_DIR)/$(DISTNAME).pkg
 
 # $(call next_version,10.8 10.9) --> returns 10.10
 define next_version
@@ -147,7 +150,9 @@ $(DEST_ROOT)$(MP_PREFIX)/bin/port: | ospkgbuild
 	find $(DEST_ROOT) -type d -empty -print0 | xargs -0 -I % -n 1 touch "%/.turd_MacPorts"
 # TODO: other steps done by MacPorts Portfile
 
-newinstaller: $(NEW_OS_PKGS)
+newinstaller: $(NEW_INSTALLER)
+$(NEW_INSTALLER): $(PRODUCTBUILD) $(NEW_OS_PKGS) $(DIST_DIR)/distribution.xml
+	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $@)
 
 oldinstaller: $(OLD_OS_PKGS)
 
