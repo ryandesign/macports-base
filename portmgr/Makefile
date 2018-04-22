@@ -14,15 +14,7 @@ COMMIT_DATE         := $(if $(GIT_COMMIT),$(shell TZ=UTC git log -1 --format=%cd
 MP_VERSION          := $(if $(GIT_COMMIT),$(shell git show $(GIT_COMMIT):config/macports_version --),)
 MP_PREFIX           := /opt/local
 VALID_GIT_COMMIT    := $(if $(GIT_COMMIT),,usage)
-ifeq ($(GIT_COMMIT),)
-DISTNAME            := MacPorts
-else
-ifeq ($(GIT_TAG),v$(MP_VERSION))
-DISTNAME            := MacPorts-$(MP_VERSION)
-else
-DISTNAME            := MacPorts-$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT)
-endif
-endif
+DISTNAME            := MacPorts$(if $(GIT_COMMIT),-$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT),)
 
 # $(call os_pkg,10.9)
 define os_pkg
