@@ -3,7 +3,6 @@ THIS_DIR            := $(dir $(THIS_MAKEFILE))
 TOP_DIR             := $(THIS_DIR)..
 SPACE               := $(subst ,, )
 
-DIST_DIR            := $(TOP_DIR)/dist
 GPG_ID              :=
 VALID_GPG_ID        := $(if $(GPG_ID),,usage)
 GIT_TAG             :=
@@ -21,13 +20,14 @@ define os_pkg
 $(DISTNAME)-for-$(1).pkg
 endef
 
+DIST_DIR            := $(TOP_DIR)/dist$(if $(GIT_COMMIT),/$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT),)
 DMG_DIR             := $(DIST_DIR)/dmg
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
 OS_PKG              := $(call os_pkg,$(MACOS_VERSION))
 PKG_VERSION         := $(if $(MP_VERSION),0.$(MP_VERSION).0.0.0.0.0,0)
 WORKSRCPATH         := $(DIST_DIR)/$(DISTNAME)
 BUILD_DIR           := $(WORKSRCPATH)
-DEST_ROOT           := $(BUILD_DIR)/_destroot
+DEST_ROOT           := $(DIST_DIR)/destroot
 
 PKGBUILD            = /usr/bin/pkgbuild
 PRODUCTBUILD        = /usr/bin/productbuild
