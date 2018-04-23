@@ -6,21 +6,24 @@ SPACE               := $(subst ,, )
 GPG_ID              :=
 VALID_GPG_ID        := $(if $(GPG_ID),,usage)
 GIT_TAG             :=
-GIT_COMMIT          := $(if $(GIT_TAG),$(shell git rev-list -1 $(GIT_TAG) --),)
-GIT_ABBREV_COMMIT   := $(if $(GIT_COMMIT),$(shell git rev-list -1 --abbrev-commit --abbrev=7 $(GIT_COMMIT) --),)
-COMMIT_DATE         := $(if $(GIT_COMMIT),$(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_COMMIT) --),)
+GIT_COMMIT          :=
+GIT_TAG_OR_COMMIT   := $(or $(GIT_TAG),$(GIT_COMMIT))
+GIT_FULL_COMMIT     := $(if $(GIT_TAG_OR_COMMIT),$(shell git rev-list -1 $(GIT_TAG_OR_COMMIT) --),)
+GIT_ABBREV_COMMIT   := $(if $(GIT_FULL_COMMIT),$(shell git rev-list -1 --abbrev-commit --abbrev=7 $(GIT_FULL_COMMIT) --),)
+COMMIT_DATE         := $(if $(GIT_FULL_COMMIT),$(shell TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%dT%H%M%SZ $(GIT_FULL_COMMIT) --),)
 # But this is wrong for -beta* and -rc*
-MP_VERSION          := $(if $(GIT_COMMIT),$(shell git show $(GIT_COMMIT):config/macports_version --),)
+MP_VERSION          := $(if $(GIT_FULL_COMMIT),$(shell git show $(GIT_FULL_COMMIT):config/macports_version --),)
+VALID_GIT_COMMIT    := $(if $(GIT_FULL_COMMIT),,usage)
+DISTNAME            := MacPorts$(if $(GIT_ABBREV_COMMIT),-$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT),)
+
 MP_PREFIX           := /opt/local
-VALID_GIT_COMMIT    := $(if $(GIT_COMMIT),,usage)
-DISTNAME            := MacPorts$(if $(GIT_COMMIT),-$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT),)
 
 # $(call os_pkg,10.9)
 define os_pkg
 $(DISTNAME)-for-$(1).pkg
 endef
 
-DIST_DIR            := $(TOP_DIR)/dist$(if $(GIT_COMMIT),/$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT),)
+DIST_DIR            := $(TOP_DIR)/dist$(if $(GIT_ABBREV_COMMIT),/$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT),)
 DMG_DIR             := $(DIST_DIR)/dmg
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
 OS_PKG              := $(call os_pkg,$(MACOS_VERSION))
@@ -67,7 +70,7 @@ clean:
 
 $(DIST_DIR)/$(DISTNAME).tar: $(VALID_GIT_COMMIT)
 	mkdir -p $(DIST_DIR)
-	git -C $(TOP_DIR) archive --format=tar --prefix=$(DISTNAME)/ $(GIT_COMMIT) --output=$(abspath $@)
+	git -C $(TOP_DIR) archive --format=tar --prefix=$(DISTNAME)/ $(GIT_FULL_COMMIT) --output=$(abspath $@)
 
 %.gz: %
 	gzip -cn9 < $< > $@
