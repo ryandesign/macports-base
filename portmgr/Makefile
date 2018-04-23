@@ -21,6 +21,7 @@ define os_pkg
 $(DISTNAME)-for-$(1).pkg
 endef
 
+DMG_DIR             := $(DIST_DIR)/dmg
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
 OS_PKG              := $(call os_pkg,$(MACOS_VERSION))
 PKG_VERSION         := $(if $(MP_VERSION),0.$(MP_VERSION).0.0.0.0.0,0)
@@ -48,6 +49,8 @@ NEW_INSTALLER_MACOS_VERSIONS    := 10.6 10.7 10.8 10.9 10.10 10.11 10.12 10.13
 OLD_OS_PKGS                     = $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call os_pkg,$(MACOS_VERSION)))
 NEW_OS_PKGS                     = $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call os_pkg,$(MACOS_VERSION)))
 
+OLD_INSTALLER_PKG               := $(DMG_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).pkg
+OLD_INSTALLER_DMG               := $(DIST_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).dmg
 NEW_INSTALLER_PKG               := $(DIST_DIR)/$(DISTNAME)-for-$(firstword $(NEW_INSTALLER_MACOS_VERSIONS))+.pkg
 
 # $(call next_version,10.8 10.9) --> returns 10.10
@@ -156,7 +159,13 @@ newinstaller: $(NEW_INSTALLER_PKG)
 $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OS_PKGS) $(DIST_DIR)/distribution.xml
 	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $@)
 
-oldinstaller: $(OLD_OS_PKGS)
+oldinstaller: $(OLD_INSTALLER_DMG)
+$(OLD_INSTALLER_DMG): $(VALID_GIT_COMMIT) $(OLD_INSTALLER_PKG)
+	hdiutil create -volname "MacPorts $(MP_VERSION)" -srcfolder $(DMG_DIR) -ov $@
+
+$(OLD_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(OLD_OS_PKGS)
+	@echo todo
+	@exit 1
 
 .PHONY: chk clean dist sign usage
 .PHONY: ospkg ospkgbuild ospkgconfigure ospkgdestroot ospkgextract
