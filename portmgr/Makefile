@@ -97,8 +97,6 @@ $(DIST_DIR)/packageinfo.xml:
 $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '<?xml version="1.0" encoding="utf-8"?>\n' > $@
 	printf '<installer-gui-script minSpecVersion="1">\n' >> $@
-	printf '    <title>MacPorts</title>\n' >> $@
-	printf '    <options customize="always"/>\n' >> $@
 	printf '    <allowed-os-versions>\n' >> $@
 	printf '        <os-version min="$(firstword $(NEW_INSTALLER_MACOS_VERSIONS))"/>\n' >> $@
 	printf '        <os-version before="$(call next_version,$(NEW_INSTALLER_MACOS_VERSIONS))"/>\n' >> $@
@@ -110,6 +108,8 @@ $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '    </choices-outline>\n' >> $@
 	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'    <choice id="MacPorts-for-$(MACOS_VERSION)" title="MacPorts $(MP_VERSION) for $(MACOS_VERSION)" description="MacPorts $(MP_VERSION) for $(MACOS_VERSION)" visible="true" enabled="my.choice.selected" selected="(my.target.systemVersion.ProductVersion+&quot;.&quot;).indexOf(&quot;$(MACOS_VERSION).&quot;)==0">' '        <pkg-ref id="MacPorts-for-$(MACOS_VERSION)">$(call os_pkg,$(MACOS_VERSION))</pkg-ref>' '    </choice>') >> $@;
 	printf '    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>\n' >> $@
+	printf '    <options customize="always"/>\n' >> $@
+	printf '    <title>MacPorts</title>\n' >> $@
 	printf '    <volume-check>\n' >> $@
 	printf '        <allowed-os-versions>\n' >> $@
 	printf '            <os-version min="$(firstword $(NEW_INSTALLER_MACOS_VERSIONS))"/>\n' >> $@
