@@ -18,15 +18,16 @@ DISTNAME            := MacPorts$(if $(GIT_ABBREV_COMMIT),-$(MP_VERSION)-$(COMMIT
 
 MP_PREFIX           := /opt/local
 
-# $(call os_pkg,10.9)
-define os_pkg
-$(DISTNAME)-for-$(1).pkg
+# $(call osbuild,10.9)
+define osbuild
+$(DISTNAME)-for-$(1)
 endef
 
 DIST_DIR            := $(TOP_DIR)/dist$(if $(GIT_ABBREV_COMMIT),/$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT),)
 DMG_DIR             := $(DIST_DIR)/dmg
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
-OS_PKG              := $(call os_pkg,$(MACOS_VERSION))
+OSBUILD             := $(call osbuild,$(MACOS_VERSION))
+OSBUILD_TBZ2        := $(DIST_DIR)/$(OSBUILD).tbz2
 PKG_VERSION         := $(if $(MP_VERSION),0.$(MP_VERSION).0.0.0.0.0,0)
 WORKSRCPATH         := $(DIST_DIR)/$(DISTNAME)
 BUILD_DIR           := $(WORKSRCPATH)
@@ -36,7 +37,6 @@ PKGBUILD            = /usr/bin/pkgbuild
 PRODUCTBUILD        = /usr/bin/productbuild
 PACKAGEMAKER_PATH   = $(or $(wildcard /Applications/PackageMaker.app),$(wildcard /Developer/Applications/PackageMaker.app),/Applications/PackageMaker.app)
 PACKAGEMAKER        = $(PACKAGEMAKER_PATH)/Contents/MacOS/PackageMaker
-PKG_TYPE            = flat
 PKG_IDENTIFIER      = org.macports.MacPorts
 
 DISTFILES           := $(addprefix $(DIST_DIR)/$(DISTNAME),.tar.gz .tar.bz2)
@@ -49,12 +49,17 @@ USAGE_MAKE_CMD  = make $(if $(filter-out Makefile,$(THIS_MAKEFILE)),-f $(THIS_MA
 OLD_INSTALLER_MACOS_VERSIONS    := 10.4 10.5
 NEW_INSTALLER_MACOS_VERSIONS    := 10.6 10.7 10.8 10.9 10.10 10.11 10.12 10.13
 
-OLD_OS_PKGS                     = $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call os_pkg,$(MACOS_VERSION)))
-NEW_OS_PKGS                     = $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call os_pkg,$(MACOS_VERSION)))
+OLD_OSBUILD_TBZ2S               = $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)).tbz2)
+NEW_OSBUILD_TBZ2S               = $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)).tbz2)
 
 OLD_INSTALLER_PKG               := $(DMG_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).pkg
 OLD_INSTALLER_DMG               := $(DIST_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).dmg
 NEW_INSTALLER_PKG               := $(DIST_DIR)/$(DISTNAME)-for-$(firstword $(NEW_INSTALLER_MACOS_VERSIONS))+.pkg
+
+# $(call macos_name,10.13) --> returns macOS
+define macos_name
+case "$(1)" in 10.[0-6]) echo Mac OS X;; 10.[7-9]|10.1[0-1]) echo OS X;; *) echo macOS;; esac
+endef
 
 # $(call next_version,10.8 10.9) --> returns 10.10
 define next_version
@@ -110,9 +115,13 @@ $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 #	printf '    <background file="background.tiff" mime-type="image/tiff" alignment="bottomleft" scaling="none"/>\n' >> $@
 #	printf '    <welcome mime-type="text/html" file="Welcome.html"/>\n' >> $@
 	printf '    <choices-outline>\n' >> $@
-	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'        <line choice="MacPorts-for-$(MACOS_VERSION)"/>') >> $@;
+	printf '        <line choice="MacPorts-common"/>\n' >> $@
+	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'        <line choice="MacPorts-for-$(MACOS_VERSION)"/>') >> $@
 	printf '    </choices-outline>\n' >> $@
-	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'    <choice id="MacPorts-for-$(MACOS_VERSION)" title="MacPorts $(MP_VERSION) for $(MACOS_VERSION)" description="MacPorts $(MP_VERSION) for $(MACOS_VERSION)" visible="true" enabled="my.choice.selected" selected="is_os(&quot;$(MACOS_VERSION)&quot;)">' '        <pkg-ref id="MacPorts-for-$(MACOS_VERSION)">$(call os_pkg,$(MACOS_VERSION))</pkg-ref>' '    </choice>') >> $@;
+	printf '    <choice id="MacPorts-common" title="MacPorts $(MP_VERSION) common files" description="MacPorts $(MP_VERSION) common files needed for any version of the Mac operating system." visible="true" enabled="false" selected="true>\n' >> $@
+	printf '        <pkg-ref id="MacPorts-common">MacPorts-$(MP_VERSION)-common.pkg</pkg-ref>\n
+	printf '    </choice>\n' >> $@
+	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'    <choice id="MacPorts-for-$(MACOS_VERSION)" title="MacPorts $(MP_VERSION) for $(call macos_name,$(MACOS_VERSION)) $(MACOS_VERSION)" description="MacPorts $(MP_VERSION) files for $(call macos_name,$(MACOS_VERSION)) $(MACOS_VERSION)." visible="true" enabled="false" selected="is_os(&quot;$(MACOS_VERSION)&quot;)">' '        <pkg-ref id="MacPorts-for-$(MACOS_VERSION)">$(call osbuild,$(MACOS_VERSION)).pkg</pkg-ref>' '    </choice>') >> $@
 	printf '    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>\n' >> $@
 	printf '    <options customize="always"/>\n' >> $@
 	printf '    <script><![CDATA[\n' >> $@
@@ -128,48 +137,84 @@ $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '    </volume-check>\n' >> $@
 	printf '</installer-gui-script>\n' >> $@
 
-ospkg: $(DIST_DIR)/$(OS_PKG)
-$(DIST_DIR)/$(OS_PKG): | ospkgdestroot $(if $(filter flat,$(PKG_TYPE)),$(PKGBUILD) $(DIST_DIR)/packageinfo.xml,$(PACKAGEMAKER))
-ifeq ($(PKG_TYPE),flat)
-	$(PKGBUILD) --info $(DIST_DIR)/packageinfo.xml --root $(DEST_ROOT)$(MP_PREFIX) --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER) --version $(PKG_VERSION) $@
-#--scripts $(PKG_SCRIPTS)
-else
-#PackageMaker method
-endif
-
-ospkgextract: $(WORKSRCPATH)/configure
-$(WORKSRCPATH)/configure: | $(DIST_DIR)/$(DISTNAME).tar
+# Build MacPorts for the current macOS version and pack it in a tbz2.
+osbuild: $(OSBUILD_TBZ2)
+$(OSBUILD_TBZ2): | $(DIST_DIR)/$(DISTNAME).tar
+	@echo "--->  Extracting"
 	tar -C $(DIST_DIR) -xf $|
-
-ospkgconfigure: $(BUILD_DIR)/Makefile
-$(BUILD_DIR)/Makefile: | ospkgextract
+	@echo "--->  Configuring"
 	mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && $(abspath $(WORKSRCPATH))/standard_configure.sh --prefix=$(MP_PREFIX)
-
-ospkgbuild: $(BUILD_DIR)/src/port/port
-$(BUILD_DIR)/src/port/port: | ospkgconfigure
+	@echo "--->  Building"
 	$(MAKE) -C $(BUILD_DIR) -j$(shell sysctl -n hw.activecpu)
-
-ospkgdestroot: $(DEST_ROOT)$(MP_PREFIX)/bin/port
-$(DEST_ROOT)$(MP_PREFIX)/bin/port: | ospkgbuild
+	@echo "--->  Staging into destroot"
 	mkdir -p $(DEST_ROOT)
+# Override DSTGRP and DSTUSR so that we don't have to be root here.
+# The permissions will be fixed up when creating the installer pkg.
 	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DEST_ROOT)) DSTGRP=$(shell id -gn) DSTUSR=$(shell id -un)
+# Don't overwrite the user's config files.
 	rm -f $(DEST_ROOT)$(MP_PREFIX)/etc/macports/*.conf
 	find $(DEST_ROOT) -type d -empty -print0 | xargs -0 -I % -n 1 touch "%/.turd_MacPorts"
 # TODO: other steps done by MacPorts Portfile
+	@echo "--->  Compressing destroot"
+	mv $(DEST_ROOT)$(MP_PREFIX) $(DEST_ROOT)/$(OSBUILD)
+	tar -C $(DEST_ROOT) -cjf $@ $(OSBUILD)
+	@echo "--->  Cleaning"
+	rm -rf $(WORKSRCPATH) $(BUILD_DIR) $(DEST_ROOT)
+
+# osextract: $(WORKSRCPATH)/configure
+# $(WORKSRCPATH)/configure: | $(DIST_DIR)/$(DISTNAME).tar
+# 	@echo "--->  Extracting"
+# 	tar -C $(DIST_DIR) -xf $|
+# 
+# osconfigure: $(BUILD_DIR)/Makefile
+# $(BUILD_DIR)/Makefile: | osextract
+# 	@echo "--->  Configuring"
+# 	mkdir -p $(BUILD_DIR)
+# 	cd $(BUILD_DIR) && $(abspath $(WORKSRCPATH))/standard_configure.sh --prefix=$(MP_PREFIX)
+# 
+# osbuild: $(BUILD_DIR)/src/port/port
+# $(BUILD_DIR)/src/port/port: | osconfigure
+# 	@echo "--->  Building"
+# 	$(MAKE) -C $(BUILD_DIR) -j$(shell sysctl -n hw.activecpu)
+# 
+# osdestroot: $(DEST_ROOT)$(MP_PREFIX)/bin/port
+# $(DEST_ROOT)$(MP_PREFIX)/bin/port: | osbuild
+# 	@echo "--->  Staging into destroot"
+# 	mkdir -p $(DEST_ROOT)
+# # Override DSTGRP and DSTUSR so that we don't have to be root here.
+# # The permissions will be fixed up when creating the installer pkg.
+# 	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DEST_ROOT)) DSTGRP=$(shell id -gn) DSTUSR=$(shell id -un)
+# # Don't overwrite the user's config files.
+# 	rm -f $(DEST_ROOT)$(MP_PREFIX)/etc/macports/*.conf
+# 	find $(DEST_ROOT) -type d -empty -print0 | xargs -0 -I % -n 1 touch "%/.turd_MacPorts"
+# # TODO: other steps done by MacPorts Portfile
 
 newinstaller: $(NEW_INSTALLER_PKG)
-$(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OS_PKGS) $(DIST_DIR)/distribution.xml
-	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $@)
+$(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $(DIST_DIR)/distribution.xml
+	FIRST_OSBUILD_TBZ2=""; \
+	for OSBUILD_TBZ2 in $(NEW_OSBUILD_TBZ2S); do \
+		tar -C $(DIST_DIR) -xjf $$OSBUILD_TBZ2; \
+		OSBUILD=$${OSBUILD_TBZ2%.*}; \
+		mkdir $(OSBUILD)-only; \
+		if [ -z "$$FIRST_OSBUILD_TBZ2" ]; then \
+			FIRST_OSBUILD_TBZ2="$$OSBUILD_TBZ2"; \
+		else \
+			echo diff ; \
+		fi; \
+	done
+	@echo todo - extract tbz2s, remove common parts, create flat pkgs
+	@exit 1
+	echo something else
+#	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $@)
 
 oldinstaller: $(OLD_INSTALLER_DMG)
 $(OLD_INSTALLER_DMG): $(VALID_GIT_COMMIT) $(OLD_INSTALLER_PKG)
 	hdiutil create -volname "MacPorts $(MP_VERSION)" -srcfolder $(DMG_DIR) -ov $@
 
-$(OLD_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(OLD_OS_PKGS)
-	@echo todo
+$(OLD_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(OLD_OSBUILD_TBZ2S)
+	@echo todo - extract tbz2s, remove common parts, create bundle pkgs
 	@exit 1
 
 .PHONY: chk clean dist sign usage
-.PHONY: ospkg ospkgbuild ospkgconfigure ospkgdestroot ospkgextract
-.PHONY: newinstaller oldinstaller
+.PHONY: newinstaller oldinstaller osbuild
