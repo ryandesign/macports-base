@@ -157,7 +157,6 @@ $(OSBUILD_TBZ2): | $(DIST_DIR)/$(DISTNAME).tar
 	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DEST_ROOT)) DSTGRP=$(shell id -gn) DSTUSR=$(shell id -un)
 # Don't overwrite the user's config files.
 	rm -f $(DEST_ROOT)$(MP_PREFIX)/etc/macports/*.conf
-	find $(DEST_ROOT) -type d -empty -print0 | xargs -0 -I % -n 1 touch "%/.turd_MacPorts"
 # TODO: other steps done by MacPorts Portfile
 	@echo "--->  Compressing destroot"
 	mv $(DEST_ROOT)$(MP_PREFIX) $(DEST_ROOT)/$(OSBUILD)
@@ -165,42 +164,12 @@ $(OSBUILD_TBZ2): | $(DIST_DIR)/$(DISTNAME).tar
 	@echo "--->  Cleaning"
 	rm -rf $(WORKSRCPATH) $(BUILD_DIR) $(DEST_ROOT)
 
-# osextract: $(WORKSRCPATH)/configure
-# $(WORKSRCPATH)/configure: | $(DIST_DIR)/$(DISTNAME).tar
-# 	@echo "--->  Extracting"
-# 	tar -C $(DIST_DIR) -xf $|
-# 
-# osconfigure: $(BUILD_DIR)/Makefile
-# $(BUILD_DIR)/Makefile: | osextract
-# 	@echo "--->  Configuring"
-# 	mkdir -p $(BUILD_DIR)
-# 	cd $(BUILD_DIR) && $(abspath $(WORKSRCPATH))/standard_configure.sh --prefix=$(MP_PREFIX)
-# 
-# osbuild: $(BUILD_DIR)/src/port/port
-# $(BUILD_DIR)/src/port/port: | osconfigure
-# 	@echo "--->  Building"
-# 	$(MAKE) -C $(BUILD_DIR) -j$(shell sysctl -n hw.activecpu)
-# 
-# osdestroot: $(DEST_ROOT)$(MP_PREFIX)/bin/port
-# $(DEST_ROOT)$(MP_PREFIX)/bin/port: | osbuild
-# 	@echo "--->  Staging into destroot"
-# 	mkdir -p $(DEST_ROOT)
-# # Override DSTGRP and DSTUSR so that we don't have to be root here.
-# # The permissions will be fixed up when creating the installer pkg.
-# 	$(MAKE) -C $(BUILD_DIR) install DESTDIR=$(abspath $(DEST_ROOT)) DSTGRP=$(shell id -gn) DSTUSR=$(shell id -un)
-# # Don't overwrite the user's config files.
-# 	rm -f $(DEST_ROOT)$(MP_PREFIX)/etc/macports/*.conf
-# 	find $(DEST_ROOT) -type d -empty -print0 | xargs -0 -I % -n 1 touch "%/.turd_MacPorts"
-# # TODO: other steps done by MacPorts Portfile
-
-#DIFFERENT_FILES=bin/daemondo
-
 newinstaller: $(NEW_INSTALLER_PKG)
 $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $(DIST_DIR)/distribution.xml
 	for OSBUILD_TBZ2 in $(OLD_OSBUILD_TBZ2S) $(NEW_OSBUILD_TBZ2S); do \
 		tar -C $(DIST_DIR) -xjf $$OSBUILD_TBZ2; \
 		rsync -a --include='*/' --exclude='*' $${OSBUILD_TBZ2%.*}/ $(DIST_DIR)/$(DISTNAME)-common/; \
-	done; \
+	done
 	fdupes -1qro name $(OLD_OSBUILDS) $(NEW_OSBUILDS) \
 	| sh -c 'pre="$(firstword $(sort $(OLD_OSBUILDS) $(NEW_OSBUILDS)))"; \
 		while read -r line; do \
@@ -209,25 +178,10 @@ $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $
 			mv "$$1" "$(DIST_DIR)/$(DISTNAME)-common$${1:$${#pre}}"; \
 			shift; \
 			rm "$$@"; \
-		done'; \
-	exit;
-# 		OSBUILD=$${OSBUILD_TBZ2%.*}; \
-# 		OSBUILD_ONLY=$$OSBUILD-only; \
-# 		for DIFFERENT_FILE in $(DIFFERENT_FILES); do \
-# 			mkdir -p $$OSBUILD_ONLY/$${DIFFERENT_FILE%/*}; \
-# 			mv $$OSBUILD/$$DIFFERENT_FILE $$OSBUILD_ONLY/$$DIFFERENT_FILE; \
-# 		done; \
-# 		if [ -z "$$FIRST_OSBUILD" ]; then \
-# 			FIRST_OSBUILD="$$OSBUILD"; \
-# 		else \
-# 			diff -ru $$FIRST_OSBUILD $$OSBUILD || { echo "These files may need to be added to DIFFERENT_FILES."; exit 1; }; \
-# 			echo foo bar; \
-# 			exit; \
-# 		fi; \
-# 	done
-# 	@echo todo - extract tbz2s, remove common parts, create flat pkgs
-# 	@exit 1
-# 	echo something else
+		done'
+	find $(DIST_DIR)/$(DISTNAME)-common -type d -empty -print0 | xargs -0 -I % touch "%/.turd_MacPorts"
+	@echo todo - create flat pkgs
+	@exit 1
 #	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $@)
 
 oldinstaller: $(OLD_INSTALLER_DMG)
