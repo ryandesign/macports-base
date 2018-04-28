@@ -49,8 +49,11 @@ USAGE_MAKE_CMD  = make $(if $(filter-out Makefile,$(THIS_MAKEFILE)),-f $(THIS_MA
 OLD_INSTALLER_MACOS_VERSIONS    := 10.4 10.5
 NEW_INSTALLER_MACOS_VERSIONS    := 10.6 10.7 10.8 10.9 10.10 10.11 10.12 10.13
 
-OLD_OSBUILD_TBZ2S               = $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)).tbz2)
-NEW_OSBUILD_TBZ2S               = $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)).tbz2)
+OLD_OSBUILDS                    = $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)))
+NEW_OSBUILDS                    = $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)))
+
+OLD_OSBUILD_TBZ2S               = $(addsuffix .tbz2,$(OLD_OSBUILDS))
+NEW_OSBUILD_TBZ2S               = $(addsuffix .tbz2,$(NEW_OSBUILDS))
 
 OLD_INSTALLER_PKG               := $(DMG_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).pkg
 OLD_INSTALLER_DMG               := $(DIST_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).dmg
@@ -119,7 +122,7 @@ $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'        <line choice="MacPorts-for-$(MACOS_VERSION)"/>') >> $@
 	printf '    </choices-outline>\n' >> $@
 	printf '    <choice id="MacPorts-common" title="MacPorts $(MP_VERSION) common files" description="MacPorts $(MP_VERSION) common files needed for any version of the Mac operating system." visible="true" enabled="false" selected="true>\n' >> $@
-	printf '        <pkg-ref id="MacPorts-common">MacPorts-$(MP_VERSION)-common.pkg</pkg-ref>\n
+	printf '        <pkg-ref id="MacPorts-common">$(DISTNAME)-common.pkg</pkg-ref>\n' >> $@
 	printf '    </choice>\n' >> $@
 	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'    <choice id="MacPorts-for-$(MACOS_VERSION)" title="MacPorts $(MP_VERSION) for $(call macos_name,$(MACOS_VERSION)) $(MACOS_VERSION)" description="MacPorts $(MP_VERSION) files for $(call macos_name,$(MACOS_VERSION)) $(MACOS_VERSION)." visible="true" enabled="false" selected="is_os(&quot;$(MACOS_VERSION)&quot;)">' '        <pkg-ref id="MacPorts-for-$(MACOS_VERSION)">$(call osbuild,$(MACOS_VERSION)).pkg</pkg-ref>' '    </choice>') >> $@
 	printf '    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>\n' >> $@
@@ -190,22 +193,41 @@ $(OSBUILD_TBZ2): | $(DIST_DIR)/$(DISTNAME).tar
 # 	find $(DEST_ROOT) -type d -empty -print0 | xargs -0 -I % -n 1 touch "%/.turd_MacPorts"
 # # TODO: other steps done by MacPorts Portfile
 
+#DIFFERENT_FILES=bin/daemondo
+
 newinstaller: $(NEW_INSTALLER_PKG)
 $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $(DIST_DIR)/distribution.xml
-	FIRST_OSBUILD_TBZ2=""; \
-	for OSBUILD_TBZ2 in $(NEW_OSBUILD_TBZ2S); do \
+	for OSBUILD_TBZ2 in $(OLD_OSBUILD_TBZ2S) $(NEW_OSBUILD_TBZ2S); do \
 		tar -C $(DIST_DIR) -xjf $$OSBUILD_TBZ2; \
-		OSBUILD=$${OSBUILD_TBZ2%.*}; \
-		mkdir $(OSBUILD)-only; \
-		if [ -z "$$FIRST_OSBUILD_TBZ2" ]; then \
-			FIRST_OSBUILD_TBZ2="$$OSBUILD_TBZ2"; \
-		else \
-			echo diff ; \
-		fi; \
-	done
-	@echo todo - extract tbz2s, remove common parts, create flat pkgs
-	@exit 1
-	echo something else
+		rsync -a --include='*/' --exclude='*' $${OSBUILD_TBZ2%.*}/ $(DIST_DIR)/$(DISTNAME)-common/; \
+	done; \
+	fdupes -1qro name $(OLD_OSBUILDS) $(NEW_OSBUILDS) \
+	| sh -c 'pre="$(firstword $(sort $(OLD_OSBUILDS) $(NEW_OSBUILDS)))"; \
+		while read -r line; do \
+			set -- $$line; \
+			[ $$# -eq $(words $(OLD_OSBUILDS) $(NEW_OSBUILDS)) ] || continue; \
+			mv "$$1" "$(DIST_DIR)/$(DISTNAME)-common$${1:$${#pre}}"; \
+			shift; \
+			rm "$$@"; \
+		done'; \
+	exit;
+# 		OSBUILD=$${OSBUILD_TBZ2%.*}; \
+# 		OSBUILD_ONLY=$$OSBUILD-only; \
+# 		for DIFFERENT_FILE in $(DIFFERENT_FILES); do \
+# 			mkdir -p $$OSBUILD_ONLY/$${DIFFERENT_FILE%/*}; \
+# 			mv $$OSBUILD/$$DIFFERENT_FILE $$OSBUILD_ONLY/$$DIFFERENT_FILE; \
+# 		done; \
+# 		if [ -z "$$FIRST_OSBUILD" ]; then \
+# 			FIRST_OSBUILD="$$OSBUILD"; \
+# 		else \
+# 			diff -ru $$FIRST_OSBUILD $$OSBUILD || { echo "These files may need to be added to DIFFERENT_FILES."; exit 1; }; \
+# 			echo foo bar; \
+# 			exit; \
+# 		fi; \
+# 	done
+# 	@echo todo - extract tbz2s, remove common parts, create flat pkgs
+# 	@exit 1
+# 	echo something else
 #	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $@)
 
 oldinstaller: $(OLD_INSTALLER_DMG)
