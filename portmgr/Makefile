@@ -174,22 +174,22 @@ $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $
 	@echo "--->  Decompressing manpages"
 	find $(OLD_OSBUILDS) $(NEW_OSBUILDS) -name '*.gz' -print0 | xargs -0 gzip -d
 	@echo "--->  Finding common files"
-	fdupes -1qro name $(OLD_OSBUILDS) $(NEW_OSBUILDS) \
-	| sh -c 'pre="$(firstword $(sort $(OLD_OSBUILDS) $(NEW_OSBUILDS)))"; \
-		while read -r line; do \
-			set -- $$line; \
-			[ $$# -gt $(words $(OLD_OSBUILDS) $(NEW_OSBUILDS)) ] && echo "Not deduplicating $$# (more than $(words $(OLD_OSBUILDS) $(NEW_OSBUILDS))) copies of $${1:$${#pre}}"; \
-			[ $$# -eq $(words $(OLD_OSBUILDS) $(NEW_OSBUILDS)) ] || continue; \
-			mv "$$1" "$(DIST_DIR)/$(DISTNAME)-common$${1:$${#pre}}"; \
-			shift; \
-			rm "$$@"; \
-		done'
+	pre="$(firstword $(sort $(OLD_OSBUILDS) $(NEW_OSBUILDS)))"; \
+	fdupes -1qro name $(OLD_OSBUILDS) $(NEW_OSBUILDS) | while read -r line; do \
+		set -- $$line; \
+		[ $$# -gt $(words $(OLD_OSBUILDS) $(NEW_OSBUILDS)) ] && echo "Not deduplicating $$# (more than $(words $(OLD_OSBUILDS) $(NEW_OSBUILDS))) copies of $${1:$${#pre}}"; \
+		[ $$# -eq $(words $(OLD_OSBUILDS) $(NEW_OSBUILDS)) ] || continue; \
+		mv "$$1" "$(DIST_DIR)/$(DISTNAME)-common$${1:$${#pre}}"; \
+		shift; \
+		rm "$$@"; \
+	done
 	@echo "--->  Recompressing manpages"
 	for DIR in $(OLD_OSBUILDS) $(NEW_OSBUILDS) $(DIST_DIR)/$(DISTNAME)-common; do \
 		find $$DIR/share/man -type f -print0 | xargs -0 gzip -9; \
 	done
 	@echo "--->  Preserving empty directories"
 	find $(DIST_DIR)/$(DISTNAME)-common -type d -empty -print0 | xargs -0 -I % touch "%/.turd_MacPorts"
+	find $(OLD_OSBUILDS) $(NEW_OSBUILDS) -type d -empty -delete
 	@echo todo - create pkgs and product installers, maybe stop using fdupes
 	@exit 1
 #	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $@)
