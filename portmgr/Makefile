@@ -38,6 +38,7 @@ PRODUCTBUILD        = /usr/bin/productbuild
 PACKAGEMAKER_PATH   = $(or $(wildcard /Applications/PackageMaker.app),$(wildcard /Developer/Applications/PackageMaker.app),/Applications/PackageMaker.app)
 PACKAGEMAKER        = $(PACKAGEMAKER_PATH)/Contents/MacOS/PackageMaker
 PKG_IDENTIFIER      = org.macports.MacPorts
+PKG_IDENTIFIER_COMMON   = $(PKG_IDENTIFIER)-common
 
 DISTFILES           := $(addprefix $(DIST_DIR)/$(DISTNAME),.tar.gz .tar.bz2)
 CHKFILES            := $(addsuffix .chk.txt,$(DISTFILES))
@@ -57,7 +58,7 @@ NEW_OSBUILD_TBZ2S               = $(addsuffix .tbz2,$(NEW_OSBUILDS))
 
 OLD_INSTALLER_PKG               := $(DMG_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).pkg
 OLD_INSTALLER_DMG               := $(DIST_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).dmg
-NEW_INSTALLER_PKG               := $(DIST_DIR)/$(DISTNAME)-for-$(firstword $(NEW_INSTALLER_MACOS_VERSIONS))+.pkg
+NEW_INSTALLER_PKG               := $(DIST_DIR)/$(DISTNAME).pkg
 
 # $(call macos_name,10.13) --> returns macOS
 MACOS_NAME_CASES := 10.[0-6]) echo Mac OS X;; 10.[7-9]|10.1[0-1]) echo OS X;; *) echo macOS;;
@@ -166,7 +167,7 @@ $(OSBUILD_TBZ2): | $(DIST_DIR)/$(DISTNAME).tar
 	rm -rf $(WORKSRCPATH) $(BUILD_DIR) $(DEST_ROOT)
 
 newinstaller: $(NEW_INSTALLER_PKG)
-$(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $(DIST_DIR)/distribution.xml
+$(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $(DIST_DIR)/distribution.xml $(DIST_DIR)/packageinfo.xml
 	@echo "--->  Extracting OS builds"
 	for OSBUILD_TBZ2 in $(OLD_OSBUILD_TBZ2S) $(NEW_OSBUILD_TBZ2S); do \
 		tar -C $(DIST_DIR) -xjf $$OSBUILD_TBZ2; \
@@ -175,6 +176,7 @@ $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $
 	@echo "--->  Decompressing manpages"
 	find $(OLD_OSBUILDS) $(NEW_OSBUILDS) -name '*.gz' -print0 | xargs -0 gzip -d
 	@echo "--->  Finding common files"
+# todo: don't use fdupes
 	pre="$(firstword $(sort $(OLD_OSBUILDS) $(NEW_OSBUILDS)))"; \
 	fdupes -1qro name $(OLD_OSBUILDS) $(NEW_OSBUILDS) | while read -r line; do \
 		set -- $$line; \
@@ -191,7 +193,13 @@ $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $
 	@echo "--->  Preserving empty directories"
 	find $(DIST_DIR)/$(DISTNAME)-common -type d -empty -print0 | xargs -0 -I % touch "%/.turd_MacPorts"
 	find $(OLD_OSBUILDS) $(NEW_OSBUILDS) -type d -empty -delete
-	@echo todo - create pkgs and product installers, maybe stop using fdupes
+	@echo "--->  Packaging new OS installer"
+	$(PKGBUILD) --info $(DIST_DIR)/packageinfo.xml --root $(DIST_DIR)/$(DISTNAME)-common --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER_COMMON) --version $(PKG_VERSION) $(DIST_DIR)/$(DISTNAME)-common.pkg
+	for OSBUILD in $(NEW_OSBUILDS); do \
+		$(PKGBUILD) --info $(DIST_DIR)/packageinfo.xml --root $$OSBUILD --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER) --version $(PKG_VERSION) $$OSBUILD.pkg; \
+	done
+	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $(NEW_INSTALLER_PKG))
+	@echo todo - create old pkgs and product installer
 	@exit 1
 #	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $@)
 
