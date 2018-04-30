@@ -123,15 +123,22 @@ $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '        <line choice="MacPorts-common"/>\n' >> $@
 	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'        <line choice="MacPorts-for-$(MACOS_VERSION)"/>') >> $@
 	printf '    </choices-outline>\n' >> $@
-	printf '    <choice id="MacPorts-common" title="MacPorts $(MP_VERSION) common files" description="MacPorts $(MP_VERSION) common files needed for any version of the Mac operating system." visible="true" enabled="false" selected="true">\n' >> $@
+	printf '    <choice id="MacPorts-common" title="MacPorts $(MP_VERSION) common files" description="MacPorts $(MP_VERSION) common files needed for any version of the Mac operating system." visible="true" enabled="false" selected="select_common()">\n' >> $@
 	printf '        <pkg-ref id="MacPorts-common">$(DISTNAME)-common.pkg</pkg-ref>\n' >> $@
 	printf '    </choice>\n' >> $@
-	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'    <choice id="MacPorts-for-$(MACOS_VERSION)" title="MacPorts $(MP_VERSION) for $(call macos_name,$(MACOS_VERSION)) $(MACOS_VERSION)" description="MacPorts $(MP_VERSION) files specific to $(call macos_name,$(MACOS_VERSION)) $(MACOS_VERSION)." visible="true" enabled="false" selected="is_os(&quot;$(MACOS_VERSION)&quot;)">' '        <pkg-ref id="MacPorts-for-$(MACOS_VERSION)">$(call osbuild,$(MACOS_VERSION)).pkg</pkg-ref>' '    </choice>') >> $@
+	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS) $(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'    <choice id="MacPorts-for-$(MACOS_VERSION)" title="MacPorts $(MP_VERSION) for $(call macos_name,$(MACOS_VERSION)) $(MACOS_VERSION)" description="MacPorts $(MP_VERSION) files specific to $(call macos_name,$(MACOS_VERSION)) $(MACOS_VERSION)." visible="true" enabled="my.choice.selected" selected="is_os(&quot;$(MACOS_VERSION)&quot;)">' '        <pkg-ref id="MacPorts-for-$(MACOS_VERSION)">$(call osbuild,$(MACOS_VERSION)).pkg</pkg-ref>' '    </choice>') >> $@
 	printf '    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>\n' >> $@
 	printf '    <options customize="always"/>\n' >> $@
 	printf '    <script><![CDATA[\n' >> $@
 	printf '    function is_os(os) {\n' >> $@
 	printf '        return (my.target.systemVersion.ProductVersion + ".").indexOf(os + ".") == 0\n' >> $@
+	printf '    }\n' >> $@
+	printf '    function select_common() {\n' >> $@
+	printf '        for (var choice_id in choices) {\n' >> $@
+	printf '            if (choice_id == "MacPorts-common") continue\n' >> $@
+	printf '            if (choice_id.indexOf("MacPorts") != -1 && choices[choice_id].selected) return true\n' >> $@
+	printf '        }\n' >> $@
+	printf '        return false\n' >> $@
 	printf '    }\n' >> $@
 	printf '    ]]></script>\n' >> $@
 	printf '    <title>MacPorts</title>\n' >> $@
