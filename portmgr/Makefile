@@ -61,7 +61,7 @@ OLD_INSTALLER_DMG               := $(DIST_DIR)/$(DISTNAME)-for-$(firstword $(OLD
 NEW_INSTALLER_PKG               := $(DIST_DIR)/$(DISTNAME).pkg
 
 # $(call macos_name,10.13) --> returns macOS
-MACOS_NAME_CASES := 10.[0-6]) echo Mac OS X;; 10.[7-9]|10.1[0-1]) echo OS X;; *) echo macOS;;
+MACOS_NAME_CASES := 10.[0-7]) echo Mac OS X;; 10.[8-9]|10.1[0-1]) echo OS X;; *) echo macOS;;
 define macos_name
 $(shell case "$(1)" in $(MACOS_NAME_CASES) esac)
 endef
