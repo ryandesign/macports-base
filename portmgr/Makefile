@@ -130,7 +130,7 @@ $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '    <options customize="always"/>\n' >> $@
 	printf '    <script><![CDATA[\n' >> $@
 	printf '    function is_os(os) {\n' >> $@
-	printf '        return (my.target.systemVersion.ProductVersion + &quot;.&quot;).indexOf(os + &quot;.&quot;) == 0\n' >> $@
+	printf '        return (my.target.systemVersion.ProductVersion + ".").indexOf(os + ".") == 0\n' >> $@
 	printf '    }\n' >> $@
 	printf '    ]]></script>\n' >> $@
 	printf '    <title>MacPorts</title>\n' >> $@
