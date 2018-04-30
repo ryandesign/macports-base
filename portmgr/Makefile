@@ -166,8 +166,7 @@ $(OSBUILD_TBZ2): | $(DIST_DIR)/$(DISTNAME).tar
 	@echo "--->  Cleaning"
 	rm -rf $(WORKSRCPATH) $(BUILD_DIR) $(DEST_ROOT)
 
-newinstaller: $(NEW_INSTALLER_PKG)
-$(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $(DIST_DIR)/distribution.xml $(DIST_DIR)/packageinfo.xml
+$(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts: $(VALID_GIT_COMMIT) $(NEW_OSBUILD_TBZ2S)
 	@echo "--->  Extracting OS builds"
 	for OSBUILD_TBZ2 in $(OLD_OSBUILD_TBZ2S) $(NEW_OSBUILD_TBZ2S); do \
 		tar -C $(DIST_DIR) -xjf $$OSBUILD_TBZ2; \
@@ -190,25 +189,30 @@ $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PRODUCTBUILD) $(NEW_OSBUILD_TBZ2S) $
 	for DIR in $(OLD_OSBUILDS) $(NEW_OSBUILDS) $(DIST_DIR)/$(DISTNAME)-common; do \
 		find $$DIR/share/man -type f -print0 | xargs -0 gzip -9; \
 	done
-	@echo "--->  Preserving empty directories"
-	find $(DIST_DIR)/$(DISTNAME)-common -type d -empty -print0 | xargs -0 -I % touch "%/.turd_MacPorts"
+	@echo "--->  Deleting empty directories in OS builds"
 	find $(OLD_OSBUILDS) $(NEW_OSBUILDS) -type d -empty -delete
+	@echo "--->  Preserving empty directories in common files"
+	find $(DIST_DIR)/$(DISTNAME)-common -type d -empty -print0 | xargs -0 -I % touch "%/.turd_MacPorts"
+
+newinstaller: $(NEW_INSTALLER_PKG)
+$(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PKGBUILD) $(PRODUCTBUILD) $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts $(DIST_DIR)/distribution.xml $(DIST_DIR)/packageinfo.xml
 	@echo "--->  Packaging new OS installer"
 	$(PKGBUILD) --info $(DIST_DIR)/packageinfo.xml --root $(DIST_DIR)/$(DISTNAME)-common --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER_COMMON) --version $(PKG_VERSION) $(DIST_DIR)/$(DISTNAME)-common.pkg
 	for OSBUILD in $(NEW_OSBUILDS); do \
 		$(PKGBUILD) --info $(DIST_DIR)/packageinfo.xml --root $$OSBUILD --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER) --version $(PKG_VERSION) $$OSBUILD.pkg; \
 	done
 	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $(NEW_INSTALLER_PKG))
-	@echo todo - create old pkgs and product installer
-	@exit 1
-#	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $@)
 
 oldinstaller: $(OLD_INSTALLER_DMG)
 $(OLD_INSTALLER_DMG): $(VALID_GIT_COMMIT) $(OLD_INSTALLER_PKG)
+	@echo "--->  Creating old OS installer disk image"
 	hdiutil create -volname "MacPorts $(MP_VERSION)" -srcfolder $(DMG_DIR) -ov $@
+	@echo todo
+	@exit 1
 
-$(OLD_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(OLD_OSBUILD_TBZ2S)
-	@echo todo - extract tbz2s, remove common parts, create bundle pkgs
+$(OLD_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PKGBUILD) $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts
+	@echo "--->  Packaging old OS installer"
+	@echo todo
 	@exit 1
 
 .PHONY: chk clean dist sign usage
