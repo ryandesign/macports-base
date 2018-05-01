@@ -225,8 +225,6 @@ $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts: $(VALID_GIT_COMMIT) $(OLD_OS
 	find $(DIST_DIR)/$(DISTNAME)-common -type d -empty -print0 | xargs -0 -I % touch "%/.turd_MacPorts"
 
 define repkg
-	@echo "--->  Recompressing $(1)"
-	$(XAR) -d- -f $(1) > $(1).toc.orig
 	mkdir $(1)-tmp
 	$(XAR) -C $(1)-tmp -xf $(1)
 	cd $(1)-tmp && if [ -f Payload ]; then \
@@ -234,7 +232,6 @@ define repkg
 	fi
 	cd $(1)-tmp && $(XAR) -cjf $(abspath $(1)) --compression-args=9 --distribution .
 	rm -rf $(1)-tmp
-	$(XAR) -d- -f $(1) > $(1).toc
 	
 endef
 
@@ -258,6 +255,7 @@ $(OLD_INSTALLER_DMG): $(VALID_GIT_COMMIT) $(OLD_INSTALLER_PKG)
 	@echo todo
 	@exit 1
 
+oldinstallerpkg: $(OLD_INSTALLER_PKG)
 $(OLD_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PKGBUILD) $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts
 	@echo "--->  Packaging old OS installer"
 	@echo todo
@@ -265,4 +263,4 @@ $(OLD_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PKGBUILD) $(DIST_DIR)/$(DISTNAME)-co
 # todo: use fakeroot to let root own the files in the pkgs
 
 .PHONY: chk clean dist sign usage
-.PHONY: newinstaller oldinstaller osbuild
+.PHONY: newinstaller oldinstaller oldinstallerpkg osbuild
