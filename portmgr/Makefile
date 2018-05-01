@@ -201,6 +201,7 @@ $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts: $(VALID_GIT_COMMIT) $(OLD_OS
 	done
 	for OSBUILD in $(OLD_OSBUILDS) $(NEW_OSBUILDS); do \
 		rsync -a --include='*/' --exclude='*' $$OSBUILD/ $(DIST_DIR)/$(DISTNAME)-common/; \
+		find $$OSBUILD -name .turd_MacPorts -delete; \
 	done
 	@echo "--->  Decompressing manpages"
 	find $(OLD_OSBUILDS) $(NEW_OSBUILDS) -name '*.gz' -print0 | xargs -0 gzip -d
