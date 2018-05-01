@@ -24,7 +24,7 @@ $(DISTNAME)-for-$(1)
 endef
 
 DIST_DIR            := $(TOP_DIR)/dist$(if $(GIT_ABBREV_COMMIT),/$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT),)
-SIP_DIR             := $(DIST_DIR)/sip
+#SIP_DIR             := $(DIST_DIR)/sip
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
 OSBUILD             := $(call osbuild,$(MACOS_VERSION))
 OSBUILD_TBZ2        := $(DIST_DIR)/$(OSBUILD).tbz2
@@ -37,6 +37,7 @@ PKGBUILD            = /usr/bin/pkgbuild
 PRODUCTBUILD        = /usr/bin/productbuild
 PACKAGEMAKER_PATH   = $(or $(wildcard /Applications/PackageMaker.app),$(wildcard /Developer/Applications/PackageMaker.app),/Applications/PackageMaker.app)
 PACKAGEMAKER        = $(PACKAGEMAKER_PATH)/Contents/MacOS/PackageMaker
+XAR                 = /usr/bin/xar
 PKG_IDENTIFIER      = org.macports.MacPorts
 PKG_IDENTIFIER_COMMON   = $(PKG_IDENTIFIER)-common
 
@@ -102,7 +103,7 @@ $(DIST_DIR)/$(DISTNAME).tar: $(VALID_GIT_COMMIT)
 	gzip -cn9 < $< > $@
 
 %.bz2: %
-	bzip2 -c9 < $< > $@
+	bzip2 -cz9 < $< > $@
 
 dist: $(DISTFILES)
 
@@ -223,6 +224,20 @@ $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts: $(VALID_GIT_COMMIT) $(OLD_OS
 	@echo "--->  Preserving empty directories in common files"
 	find $(DIST_DIR)/$(DISTNAME)-common -type d -empty -print0 | xargs -0 -I % touch "%/.turd_MacPorts"
 
+define repkg
+	@echo "--->  Recompressing $(1)"
+	$(XAR) -d- -f $(1) > $(1).toc.orig
+	mkdir $(1)-tmp
+	$(XAR) -C $(1)-tmp -xf $(1)
+	cd $(1)-tmp && if [ -f Payload ]; then \
+		gzip -d < Payload | bzip2 -cz9 > Payload-tmp && mv Payload-tmp Payload; \
+	fi
+	cd $(1)-tmp && $(XAR) -cjf $(abspath $(1)) --compression-args=9 --distribution .
+	rm -rf $(1)-tmp
+	$(XAR) -d- -f $(1) > $(1).toc
+	
+endef
+
 newinstaller: $(NEW_INSTALLER_PKG)
 $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PKGBUILD) $(PRODUCTBUILD) $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts $(NEW_INSTALLER_DIR)/distribution.xml $(NEW_INSTALLER_DIR)/packageinfo.xml
 	@echo "--->  Packaging new OS installer"
@@ -230,35 +245,11 @@ $(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PKGBUILD) $(PRODUCTBUILD) $(DIST_DIR
 	for OSBUILD in $(NEW_OSBUILDS); do \
 		$(PKGBUILD) --info $(NEW_INSTALLER_DIR)/packageinfo.xml --root $$OSBUILD --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER) --version $(PKG_VERSION) $$OSBUILD.pkg; \
 	done
-# Recompress to bzip2 to save space.
-# todo: verify this installs on all OS versions
-	mkdir -p $(SIP_DIR)
-	cp -p /usr/bin/xar /usr/sbin/chown $(SIP_DIR)
-	for PKG in $(abspath $(NEW_INSTALLER_DIR)/$(DISTNAME)-common.pkg $(NEW_OSBUILD_PKGS)); do \
-		xar -d- -f $$PKG > $$PKG.toc.orig; \
-		mkdir $$PKG-tmp; \
-		fakeroot -s $(FAKE_ENV) $(SIP_DIR)/xar -C $$PKG-tmp -xf $$PKG; \
-		gzip -d < $$PKG-tmp/Payload | bzip2 > $$PKG-tmp/Payload.bz2; \
-		mv $$PKG-tmp/Payload.bz2 $$PKG-tmp/Payload; \
-		fakeroot -i $(FAKE_ENV) -s $(FAKE_ENV) $(SIP_DIR)/chown -R root:wheel $$PKG-tmp; \
-		pushd $$PKG-tmp > /dev/null && fakeroot -i $(abspath $(FAKE_ENV) $(SIP_DIR)/xar) -cjf $$PKG . && popd > /dev/null; \
-		rm -rf $$PKG-tmp; \
-		xar -d- -f $$PKG > $$PKG.toc; \
-	done
+	$(foreach PKG,$(NEW_INSTALLER_DIR)/$(DISTNAME)-common.pkg $(NEW_OSBUILD_PKGS),$(call repkg,$(PKG)))
 	mkdir -p $(DIST_DIR)/resources/English.lproj
 	cp -p $(THIS_DIR)/dmg/Welcome.html $(DIST_DIR)/resources/English.lproj/
 	cd $(NEW_INSTALLER_DIR) && $(PRODUCTBUILD) --distribution distribution.xml --resources ../resources $(abspath $(NEW_INSTALLER_PKG))
-# Recompress to bzip2 to save space.
-	xar -d- -f $(NEW_INSTALLER_PKG) > $(NEW_INSTALLER_PKG).toc.orig
-	mkdir $(NEW_INSTALLER_PKG)-tmp
-	xar -C $(NEW_INSTALLER_PKG)-tmp -xf $(NEW_INSTALLER_PKG)
-	xar -C $(NEW_INSTALLER_PKG)-tmp -cjf $(NEW_INSTALLER_PKG) .
-	rm -rf $(NEW_INSTALLER_PKG)-tmp
-	xar -d- -f $(NEW_INSTALLER_PKG) > $(NEW_INSTALLER_PKG).toc
-	rm -rf $(SIP_DIR)
-# todo: manually compare toc of pkgs before and after bzip2 repackaging to make
-# sure we didn't change something we didn't want to
-# todo: use fakeroot to let root own the files in the pkgs
+	$(call repkg,$(NEW_INSTALLER_PKG))
 
 oldinstaller: $(OLD_INSTALLER_DMG)
 $(OLD_INSTALLER_DMG): $(VALID_GIT_COMMIT) $(OLD_INSTALLER_PKG)
@@ -271,6 +262,7 @@ $(OLD_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PKGBUILD) $(DIST_DIR)/$(DISTNAME)-co
 	@echo "--->  Packaging old OS installer"
 	@echo todo
 	@exit 1
+# todo: use fakeroot to let root own the files in the pkgs
 
 .PHONY: chk clean dist sign usage
 .PHONY: newinstaller oldinstaller osbuild
