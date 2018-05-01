@@ -24,7 +24,7 @@ $(DISTNAME)-for-$(1)
 endef
 
 DIST_DIR            := $(TOP_DIR)/dist$(if $(GIT_ABBREV_COMMIT),/$(MP_VERSION)-$(COMMIT_DATE)-$(GIT_ABBREV_COMMIT),)
-DMG_DIR             := $(DIST_DIR)/dmg
+SIP_DIR             := $(DIST_DIR)/sip
 MACOS_VERSION       := $(shell sw_vers -productVersion | cut -d. -f1-2)
 OSBUILD             := $(call osbuild,$(MACOS_VERSION))
 OSBUILD_TBZ2        := $(DIST_DIR)/$(OSBUILD).tbz2
@@ -46,19 +46,35 @@ GPGFILES            := $(addsuffix .asc,$(DISTFILES))
 
 USAGE_MAKE_CMD  = make $(if $(filter-out Makefile,$(THIS_MAKEFILE)),-f $(THIS_MAKEFILE) ,)$(or $(filter-out usage,$(MAKECMDGOALS)),dist)
 
-# Keep these lists sorted in ascending order.
+# Keep these lists sorted in ascending version order.
 OLD_INSTALLER_MACOS_VERSIONS    := 10.4 10.5
 NEW_INSTALLER_MACOS_VERSIONS    := 10.6 10.7 10.8 10.9 10.10 10.11 10.12 10.13
 
-OLD_OSBUILDS                    = $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)))
-NEW_OSBUILDS                    = $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)))
+# Temporary directories for building the installer.
+OLD_INSTALLER_DIR               := $(DIST_DIR)/old
+NEW_INSTALLER_DIR               := $(DIST_DIR)/new
 
-OLD_OSBUILD_TBZ2S               = $(addsuffix .tbz2,$(OLD_OSBUILDS))
-NEW_OSBUILD_TBZ2S               = $(addsuffix .tbz2,$(NEW_OSBUILDS))
+# Compressed archives direct from the build machines.
+OLD_OSBUILD_TBZ2S               := $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)).tbz2)
+NEW_OSBUILD_TBZ2S               := $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(DIST_DIR)/$(call osbuild,$(MACOS_VERSION)).tbz2)
 
-OLD_INSTALLER_PKG               := $(DMG_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).pkg
-OLD_INSTALLER_DMG               := $(DIST_DIR)/$(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS)).dmg
-NEW_INSTALLER_PKG               := $(DIST_DIR)/$(DISTNAME).pkg
+# Extracted builds, for deduplication.
+OLD_OSBUILDS                    := $(foreach MACOS_VERSION,$(OLD_INSTALLER_MACOS_VERSIONS),$(OLD_INSTALLER_DIR)/$(call osbuild,$(MACOS_VERSION)))
+NEW_OSBUILDS                    := $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),$(NEW_INSTALLER_DIR)/$(call osbuild,$(MACOS_VERSION)))
+
+# Deduplicated pkgs containing only the OS-specific bits.
+OLD_OSBUILD_PKGS                := $(addsuffix .pkg,$(OLD_OSBUILDS))
+NEW_OSBUILD_PKGS                := $(addsuffix .pkg,$(NEW_OSBUILDS))
+
+OLD_INSTALLER_DISTNAME          := $(DISTNAME)-for-$(firstword $(OLD_INSTALLER_MACOS_VERSIONS))-$(lastword $(OLD_INSTALLER_MACOS_VERSIONS))
+NEW_INSTALLER_DISTNAME          := $(DISTNAME)
+
+OLD_INSTALLER_DMG_DIR           := $(OLD_INSTALLER_DIR)/dmg
+OLD_INSTALLER_PKG               := $(OLD_INSTALLER_DMG_DIR)/$(OLD_INSTALLER_DISTNAME).pkg
+OLD_INSTALLER_DMG               := $(DIST_DIR)/$(OLD_INSTALLER_DISTNAME).dmg
+NEW_INSTALLER_PKG               := $(DIST_DIR)/$(NEW_INSTALLER_DISTNAME).pkg
+
+FAKE_ENV                        := $(DIST_DIR)/fake.env
 
 # $(call macos_name,10.13) --> returns macOS
 MACOS_NAME_CASES := 10.[0-7]) echo Mac OS X;; 10.[8-9]|10.1[0-1]) echo OS X;; *) echo macOS;;
@@ -105,12 +121,12 @@ chk: $(DIST_DIR)/$(DISTNAME).chk.txt
 
 sign: $(VALID_GIT_COMMIT) $(GPGFILES)
 
-$(DIST_DIR)/packageinfo.xml:
+$(NEW_INSTALLER_DIR)/packageinfo.xml:
 	printf '<?xml version="1.0" encoding="utf-8"?>\n' > $@
 	printf '<pkg-info relocatable="false" useHFSPlusCompression="true">\n' >> $@
 	printf '</pkg-info>\n' >> $@
 
-$(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
+$(NEW_INSTALLER_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '<?xml version="1.0" encoding="utf-8"?>\n' > $@
 	printf '<installer-gui-script minSpecVersion="1">\n' >> $@
 	printf '    <allowed-os-versions>\n' >> $@
@@ -118,7 +134,6 @@ $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '        <os-version before="$(call next_version,$(NEW_INSTALLER_MACOS_VERSIONS))"/>\n' >> $@
 	printf '    </allowed-os-versions>\n' >> $@
 #	printf '    <background file="background.tiff" mime-type="image/tiff" alignment="bottomleft" scaling="none"/>\n' >> $@
-#	printf '    <welcome mime-type="text/html" file="Welcome.html"/>\n' >> $@
 	printf '    <choices-outline>\n' >> $@
 	printf '        <line choice="MacPorts-common"/>\n' >> $@
 	printf '$(subst $(SPACE),,$(foreach ,$(NEW_INSTALLER_MACOS_VERSIONS),%s\n))' $(foreach MACOS_VERSION,$(NEW_INSTALLER_MACOS_VERSIONS),'        <line choice="MacPorts-for-$(MACOS_VERSION)"/>') >> $@
@@ -135,8 +150,9 @@ $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '    }\n' >> $@
 	printf '    function select_common() {\n' >> $@
 	printf '        for (var choice_id in choices) {\n' >> $@
-	printf '            if (choice_id == "MacPorts-common") continue\n' >> $@
-	printf '            if (choice_id.indexOf("MacPorts") != -1 && choices[choice_id].selected) return true\n' >> $@
+	printf '            if (choice_id != "MacPorts-common" && choice_id.indexOf("MacPorts") != -1 && choices[choice_id].selected) {\n' >> $@
+	printf '                return true\n' >> $@
+	printf '            }\n' >> $@
 	printf '        }\n' >> $@
 	printf '        return false\n' >> $@
 	printf '    }\n' >> $@
@@ -147,6 +163,7 @@ $(DIST_DIR)/distribution.xml: $(VALID_GIT_COMMIT)
 	printf '            <os-version min="$(firstword $(NEW_INSTALLER_MACOS_VERSIONS))"/>\n' >> $@
 	printf '        </allowed-os-versions>\n' >> $@
 	printf '    </volume-check>\n' >> $@
+	printf '    <welcome mime-type="text/html" file="Welcome.html"/>\n' >> $@
 	printf '</installer-gui-script>\n' >> $@
 
 # Build MacPorts for the current macOS version and pack it in a tbz2.
@@ -173,11 +190,17 @@ $(OSBUILD_TBZ2): | $(DIST_DIR)/$(DISTNAME).tar
 	@echo "--->  Cleaning"
 	rm -rf $(WORKSRCPATH) $(BUILD_DIR) $(DEST_ROOT)
 
-$(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts: $(VALID_GIT_COMMIT) $(NEW_OSBUILD_TBZ2S)
+$(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts: $(VALID_GIT_COMMIT) $(OLD_OSBUILD_TBZ2S) $(NEW_OSBUILD_TBZ2S)
 	@echo "--->  Extracting OS builds"
-	for OSBUILD_TBZ2 in $(OLD_OSBUILD_TBZ2S) $(NEW_OSBUILD_TBZ2S); do \
-		tar -C $(DIST_DIR) -xjf $$OSBUILD_TBZ2; \
-		rsync -a --include='*/' --exclude='*' $${OSBUILD_TBZ2%.*}/ $(DIST_DIR)/$(DISTNAME)-common/; \
+	mkdir -p $(OLD_INSTALLER_DIR) $(NEW_INSTALLER_DIR)
+	for OSBUILD_TBZ2 in $(OLD_OSBUILD_TBZ2S); do \
+		tar -C $(OLD_INSTALLER_DIR) -xjf $$OSBUILD_TBZ2; \
+	done
+	for OSBUILD_TBZ2 in $(NEW_OSBUILD_TBZ2S); do \
+		tar -C $(NEW_INSTALLER_DIR) -xjf $$OSBUILD_TBZ2; \
+	done
+	for OSBUILD in $(OLD_OSBUILDS) $(NEW_OSBUILDS); do \
+		rsync -a --include='*/' --exclude='*' $$OSBUILD/ $(DIST_DIR)/$(DISTNAME)-common/; \
 	done
 	@echo "--->  Decompressing manpages"
 	find $(OLD_OSBUILDS) $(NEW_OSBUILDS) -name '*.gz' -print0 | xargs -0 gzip -d
@@ -193,27 +216,53 @@ $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts: $(VALID_GIT_COMMIT) $(NEW_OS
 		rm "$$@"; \
 	done
 	@echo "--->  Recompressing manpages"
-	for DIR in $(OLD_OSBUILDS) $(NEW_OSBUILDS) $(DIST_DIR)/$(DISTNAME)-common; do \
-		find $$DIR/share/man -type f -print0 | xargs -0 gzip -9; \
-	done
+	find $(addsuffix /share/man,$(OLD_OSBUILDS) $(NEW_OSBUILDS) $(DIST_DIR)/$(DISTNAME)-common) -type f -print0 | xargs -0 gzip -9
 	@echo "--->  Deleting empty directories in OS builds"
 	find $(OLD_OSBUILDS) $(NEW_OSBUILDS) -type d -empty -delete
 	@echo "--->  Preserving empty directories in common files"
 	find $(DIST_DIR)/$(DISTNAME)-common -type d -empty -print0 | xargs -0 -I % touch "%/.turd_MacPorts"
 
 newinstaller: $(NEW_INSTALLER_PKG)
-$(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PKGBUILD) $(PRODUCTBUILD) $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts $(DIST_DIR)/distribution.xml $(DIST_DIR)/packageinfo.xml
+$(NEW_INSTALLER_PKG): $(VALID_GIT_COMMIT) $(PKGBUILD) $(PRODUCTBUILD) $(DIST_DIR)/$(DISTNAME)-common/sbin/.turd_MacPorts $(NEW_INSTALLER_DIR)/distribution.xml $(NEW_INSTALLER_DIR)/packageinfo.xml
 	@echo "--->  Packaging new OS installer"
-	$(PKGBUILD) --info $(DIST_DIR)/packageinfo.xml --root $(DIST_DIR)/$(DISTNAME)-common --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER_COMMON) --version $(PKG_VERSION) $(DIST_DIR)/$(DISTNAME)-common.pkg
+	$(PKGBUILD) --info $(NEW_INSTALLER_DIR)/packageinfo.xml --root $(DIST_DIR)/$(DISTNAME)-common --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER_COMMON) --version $(PKG_VERSION) $(NEW_INSTALLER_DIR)/$(DISTNAME)-common.pkg
 	for OSBUILD in $(NEW_OSBUILDS); do \
-		$(PKGBUILD) --info $(DIST_DIR)/packageinfo.xml --root $$OSBUILD --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER) --version $(PKG_VERSION) $$OSBUILD.pkg; \
+		$(PKGBUILD) --info $(NEW_INSTALLER_DIR)/packageinfo.xml --root $$OSBUILD --install-location $(MP_PREFIX) --identifier $(PKG_IDENTIFIER) --version $(PKG_VERSION) $$OSBUILD.pkg; \
 	done
-	cd $(DIST_DIR) && $(PRODUCTBUILD) --distribution distribution.xml $(abspath $(NEW_INSTALLER_PKG))
+# Recompress to bzip2 to save space.
+# todo: verify this installs on all OS versions
+	mkdir -p $(SIP_DIR)
+	cp -p /usr/bin/xar /usr/sbin/chown $(SIP_DIR)
+	for PKG in $(abspath $(NEW_INSTALLER_DIR)/$(DISTNAME)-common.pkg $(NEW_OSBUILD_PKGS)); do \
+		xar -d- -f $$PKG > $$PKG.toc.orig; \
+		mkdir $$PKG-tmp; \
+		fakeroot -s $(FAKE_ENV) $(SIP_DIR)/xar -C $$PKG-tmp -xf $$PKG; \
+		gzip -d < $$PKG-tmp/Payload | bzip2 > $$PKG-tmp/Payload.bz2; \
+		mv $$PKG-tmp/Payload.bz2 $$PKG-tmp/Payload; \
+		fakeroot -i $(FAKE_ENV) -s $(FAKE_ENV) $(SIP_DIR)/chown -R root:wheel $$PKG-tmp; \
+		pushd $$PKG-tmp > /dev/null && fakeroot -i $(abspath $(FAKE_ENV) $(SIP_DIR)/xar) -cjf $$PKG . && popd > /dev/null; \
+		rm -rf $$PKG-tmp; \
+		xar -d- -f $$PKG > $$PKG.toc; \
+	done
+	mkdir -p $(DIST_DIR)/resources/English.lproj
+	cp -p $(THIS_DIR)/dmg/Welcome.html $(DIST_DIR)/resources/English.lproj/
+	cd $(NEW_INSTALLER_DIR) && $(PRODUCTBUILD) --distribution distribution.xml --resources ../resources $(abspath $(NEW_INSTALLER_PKG))
+# Recompress to bzip2 to save space.
+	xar -d- -f $(NEW_INSTALLER_PKG) > $(NEW_INSTALLER_PKG).toc.orig
+	mkdir $(NEW_INSTALLER_PKG)-tmp
+	xar -C $(NEW_INSTALLER_PKG)-tmp -xf $(NEW_INSTALLER_PKG)
+	xar -C $(NEW_INSTALLER_PKG)-tmp -cjf $(NEW_INSTALLER_PKG) .
+	rm -rf $(NEW_INSTALLER_PKG)-tmp
+	xar -d- -f $(NEW_INSTALLER_PKG) > $(NEW_INSTALLER_PKG).toc
+	rm -rf $(SIP_DIR)
+# todo: manually compare toc of pkgs before and after bzip2 repackaging to make
+# sure we didn't change something we didn't want to
+# todo: use fakeroot to let root own the files in the pkgs
 
 oldinstaller: $(OLD_INSTALLER_DMG)
 $(OLD_INSTALLER_DMG): $(VALID_GIT_COMMIT) $(OLD_INSTALLER_PKG)
 	@echo "--->  Creating old OS installer disk image"
-	hdiutil create -volname "MacPorts $(MP_VERSION)" -srcfolder $(DMG_DIR) -ov $@
+	hdiutil create -volname "MacPorts $(MP_VERSION)" -srcfolder $(OLD_INSTALLER_DMG_DIR) -ov $@
 	@echo todo
 	@exit 1
 
