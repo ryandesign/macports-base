@@ -23,19 +23,18 @@
 # CFLAGS
 #   Additional C compiler flags which are appended to the defaults.
 #
-# CONFIGURE
-#   The path to the configure script. This is needed for out-of-source builds,
-#   but MacPorts cannot currently be built out-of-source. See
-#   https://trac.macports.org/ticket/28001.
-#
 # LDFLAGS
 #   Additional linker flags which are appended to the defaults.
 #
 # MACOSX_DEPLOYMENT_TARGET
-#   The minimum macOS version on which the built software can run. It has not
-#   been tested whether all aspects of MacPorts will function correctly on
-#   earlier macOS versions if built on a later macOS version, so changing the
-#   value of this variable is not recommended except to perform such testing.
+#   The minimum macOS version on which the compiled libraries and programs are
+#   intended to run. It has not been tested whether building for an earlier
+#   deployment target results in all aspects of MacPorts functioning correctly
+#   on earlier macOS versions, so changing the value of this variable is not
+#   recommended except to perform such testing. In addition, some values that
+#   vary based on macOS version are recorded in text files like macports.conf,
+#   macports_autoconf.tcl and port_autoconf.tcl, so they must be generated on
+#   the same major version of macOS as the one on which they will be used.
 #
 # OPTFLAGS
 #   Compiler optimization flags.
@@ -46,15 +45,25 @@
 # UNIVERSAL
 #   Whether the default ARCHS are universal (yes/no).
 
-: "${CONFIGURE=./configure}"
+set -euo pipefail
 
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+MACPORTS_VERSION=$(cat "$SCRIPT_DIR/config/macports_version")
+CONFIGURE=$SCRIPT_DIR/configure
+DEFAULT_CFLAGS=-pipe
+DEFAULT_LDFLAGS=
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
 
 SYSTEM_NAME=$(uname -s)
 if [ "$SYSTEM_NAME" = "Darwin" ]; then
-    MACOS_VERSION=$(sw_vers -productVersion)
-    : "${MACOSX_DEPLOYMENT_TARGET=${MACOS_VERSION%.*}}"
-    case ${MACOS_VERSION%.*} in
+    DEFAULT_LDFLAGS="$DEFAULT_LDFLAGS -Wl,-headerpad_max_install_names"
+    MACOS_VERSION_MAJOR=$(sw_vers -productVersion | cut -d. -f1-2)
+    : "${MACOSX_DEPLOYMENT_TARGET=$MACOS_VERSION_MAJOR}"
+    case $MACOS_VERSION_MAJOR in
+        10.[0123])
+            echo "MacPorts $MACPORTS_VERSION requires Mac OS X 10.4 or later." 1>&2
+            exit 1
+            ;;
         10.4)
             : "${CC=/usr/bin/gcc-4.0}"
             : "${SDKPATH=/Developer/SDKs/MacOSX10.4u.sdk}"
@@ -66,7 +75,7 @@ if [ "$SYSTEM_NAME" = "Darwin" ]; then
             : "${CC=/usr/bin/clang}"
             ;;
     esac
-    case ${MACOS_VERSION%.*} in
+    case $MACOS_VERSION_MAJOR in
         10.[456])
             : "${UNIVERSAL=yes}"
             ;;
@@ -74,7 +83,7 @@ if [ "$SYSTEM_NAME" = "Darwin" ]; then
             : "${UNIVERSAL=no}"
             ;;
     esac
-    case ${MACOS_VERSION%.*} in
+    case $MACOS_VERSION_MAJOR in
         10.[45])
             if [ "$UNIVERSAL" = "yes" ]; then
                 : "${ARCHS=ppc i386}"
@@ -100,34 +109,23 @@ if [ "$SYSTEM_NAME" = "Darwin" ]; then
     esac
 fi
 
-: "${ARCHS=}"
-: "${ARCHFLAGS=}"
-if [ -z "$ARCHFLAGS" ]; then
-    for A in $ARCHS; do
-        ARCHFLAGS="$ARCHFLAGS -arch $A"
+if [ -z "${ARCHFLAGS-}" ]; then
+    for A in ${ARCHS-}; do
+        ARCHFLAGS="${ARCHFLAGS-} -arch $A"
     done
+    ARCHFLAGS="${ARCHFLAGS# }"
 fi
 
-: "${SDKPATH=}"
-if [ -z "$SDKPATH" ]; then
-    SDK_CFLAGS=
-    SDK_LDFLAGS=
-else
-    SDK_CFLAGS="-isysroot $SDKPATH"
-    SDK_LDFLAGS="-Wl,-syslibroot,$SDKPATH"
-fi
-
-: "${MACOSX_DEPLOYMENT_TARGET=}"
 : "${CC=cc}"
+: "${MACOSX_DEPLOYMENT_TARGET=}"
 : "${OPTFLAGS=-Os}"
 
-EXTRA_CFLAGS="${CFLAGS-}"
-EXTRA_LDFLAGS="${LDFLAGS-}"
+CFLAGS="$DEFAULT_CFLAGS${OPTFLAGS:+ $OPTFLAGS}${ARCHFLAGS:+ $ARCHFLAGS}${SDKPATH:+ -isysroot$SDKPATH}${CFLAGS:+ $CFLAGS}"
+CFLAGS="${CFLAGS# }"
+LDFLAGS="$DEFAULT_LDFLAGS${ARCHFLAGS:+ $ARCHFLAGS}${SDKPATH:+ -Wl,-syslibroot,$SDKPATH}${LDFLAGS:+ $LDFLAGS}"
+LDFLAGS="${LDFLAGS# }"
 
-CFLAGS="-pipe $OPTFLAGS $ARCHFLAGS $SDK_CFLAGS $EXTRA_CFLAGS"
-LDFLAGS="-Wl,-headerpad_max_install_names $ARCHFLAGS $SDK_LDFLAGS $EXTRA_LDFLAGS"
-
-echo "Running $CONFIGURE with the following environment:"
+echo "Configuring MacPorts $MACPORTS_VERSION with the following environment:"
 for VAR in CC CFLAGS LDFLAGS MACOSX_DEPLOYMENT_TARGET PATH; do
     echo "$VAR=\"${!VAR}\""
 done
