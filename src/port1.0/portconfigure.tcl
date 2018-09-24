@@ -416,31 +416,31 @@ proc portconfigure::configure_get_sdkroot {sdk_version} {
     }
 
     if {$sdk_version eq "10.4"} {
-        set sdk ${sdks_dir}/MacOSX10.4u.sdk
+        set sdk_path ${sdks_dir}/MacOSX10.4u.sdk
     } else {
-        set sdk ${sdks_dir}/MacOSX${sdk_version}.sdk
+        set sdk_path ${sdks_dir}/MacOSX${sdk_version}.sdk
     }
 
-    if {[file exists $sdk]} {
-        return $sdk
+    if {[file exists $sdk_path]} {
+        return $sdk_path
     }
 
-    if {![catch {set sdk [exec xcrun --sdk macosx${sdk_version} --show-sdk-path 2> /dev/null]}]} {
-        return $sdk
+    if {![catch {set sdk_path [exec xcrun --sdk macosx${sdk_version} --show-sdk-path 2> /dev/null]}]} {
+        return $sdk_path
     }
 
-    set sdk /Library/Developer/CommandLineTools/SDKs/MacOSX${sdk_version}.sdk
-    if {[file exists $sdk]} {
-        return $sdk
+    set sdk_path /Library/Developer/CommandLineTools/SDKs/MacOSX${sdk_version}.sdk
+    if {[file exists $sdk_path]} {
+        return $sdk_path
     }
 
     # TODO: Support falling back to "macosx" if it is present?
     #       This leads to problems when it is newer than the base OS because many OSS assume that
     #       the SDK version matches the deployment target, so they unconditionally try to use
     #       symbols that are only available on newer OS versions..
-    #if {![catch {set sdk [exec xcrun --sdk macosx --show-sdk-path 2> /dev/null]}]} {
+    #if {![catch {set sdk_path [exec xcrun --sdk macosx --show-sdk-path 2> /dev/null]}]} {
     #    ui_warn "Unable to determine location of the macOS ${sdk_version} SDK.  Using the default macOS SDK."
-    #    return $sdk
+    #    return $sdk_path
     #}
 
     ui_error "Unable to determine location of a macOS SDK."
