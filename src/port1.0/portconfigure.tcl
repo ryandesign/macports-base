@@ -392,7 +392,7 @@ proc portconfigure::configure_get_ld_archflags {} {
 }
 
 proc portconfigure::configure_get_sdkroot {sdk_version} {
-    global developer_dir macosx_version xcodeversion os.arch os.platform
+    global developer_dir macosx_version prefix xcodeversion os.arch os.platform
 
     # This is only relevant for macOS
     if {${os.platform} ne "darwin"} {
@@ -435,6 +435,10 @@ proc portconfigure::configure_get_sdkroot {sdk_version} {
         return $sdk_path
     }
 
+    port::register_callback portconfigure::add_sdk_dependency
+    set sdk_path $prefix/Developer/SDKs/$sdk
+    return $sdk_path
+
     # TODO: Support falling back to "macosx" if it is present?
     #       This leads to problems when it is newer than the base OS because many OSS assume that
     #       the SDK version matches the deployment target, so they unconditionally try to use
@@ -446,6 +450,11 @@ proc portconfigure::configure_get_sdkroot {sdk_version} {
 
     ui_error "Unable to determine location of a macOS SDK."
     return -code error "Unable to determine location of a macOS SDK."
+}
+
+proc portconfigure::add_sdk_dependency {} {
+    global configure.sdkroot
+    depends_build-append port:[file tail ${configure.sdkroot}]
 }
 
 # internal function to determine the "-arch xy" flags for the compiler
