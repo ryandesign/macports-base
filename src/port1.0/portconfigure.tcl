@@ -234,7 +234,7 @@ options configure.build_arch configure.ld_archflags \
         configure.sdk_version configure.sdkroot
 default configure.build_arch    {[portconfigure::choose_supported_archs ${build_arch}]}
 default configure.ld_archflags  {[portconfigure::configure_get_ld_archflags]}
-default configure.sdk_version   {$macosx_sdk_version}
+default configure.sdk_version   {[portconfigure::configure_get_sdk_version]}
 default configure.sdkroot       {[portconfigure::configure_get_sdkroot ${configure.sdk_version}]}
 foreach tool {cc objc f77 f90 fc} {
     options configure.${tool}_archflags
@@ -389,6 +389,14 @@ proc portconfigure::configure_get_ld_archflags {} {
     } else {
         return ""
     }
+}
+
+proc portconfigure::configure_get_sdk_version {} {
+    global macosx_sdk_version
+    if {$macosx_sdk_version eq "10.14" && "i386" in [get_canonical_archs]} {
+        return 10.13
+    }
+    return $macosx_sdk_version
 }
 
 proc portconfigure::configure_get_sdkroot {sdk_version} {
