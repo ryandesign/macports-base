@@ -399,9 +399,11 @@ proc portconfigure::configure_get_sdkroot {sdk_version} {
         return {}
     }
 
+    set sdks_dir $developer_dir/SDKs
+
     # Special hack for Tiger/ppc, since the system libraries do not contain Intel slices
     if {${os.arch} eq "powerpc" && $macosx_version eq "10.4" && [variant_exists universal] && [variant_isset universal]} {
-        return ${developer_dir}/SDKs/MacOSX10.4u.sdk
+        return $sdks_dir/MacOSX10.4u.sdk
     }
 
     # Use the DevSDK (i.e. /usr/include) if present and the requested SDK version matches the host version
@@ -409,10 +411,8 @@ proc portconfigure::configure_get_sdkroot {sdk_version} {
         return {}
     }
 
-    if {[vercmp $xcodeversion 4.3] < 0} {
-        set sdks_dir ${developer_dir}/SDKs
-    } else {
-        set sdks_dir ${developer_dir}/Platforms/MacOSX.platform/Developer/SDKs
+    if {[vercmp $xcodeversion 4.3] >= 0} {
+        set sdks_dir $developer_dir/Platforms/MacOSX.platform/Developer/SDKs
     }
 
     if {$sdk_version eq "10.4"} {
