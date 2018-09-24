@@ -399,6 +399,12 @@ proc portconfigure::configure_get_sdkroot {sdk_version} {
         return {}
     }
 
+    if {$sdk_version eq "10.4"} {
+        set sdk MacOSX${sdk_version}u.sdk
+    } else {
+        set sdk MacOSX${sdk_version}.sdk
+    }
+
     set sdks_dir $developer_dir/SDKs
 
     # Special hack for Tiger/ppc, since the system libraries do not contain Intel slices
@@ -415,12 +421,7 @@ proc portconfigure::configure_get_sdkroot {sdk_version} {
         set sdks_dir $developer_dir/Platforms/MacOSX.platform/Developer/SDKs
     }
 
-    if {$sdk_version eq "10.4"} {
-        set sdk_path ${sdks_dir}/MacOSX10.4u.sdk
-    } else {
-        set sdk_path ${sdks_dir}/MacOSX${sdk_version}.sdk
-    }
-
+    set sdk_path $sdks_dir/$sdk
     if {[file exists $sdk_path]} {
         return $sdk_path
     }
@@ -429,7 +430,7 @@ proc portconfigure::configure_get_sdkroot {sdk_version} {
         return $sdk_path
     }
 
-    set sdk_path /Library/Developer/CommandLineTools/SDKs/MacOSX${sdk_version}.sdk
+    set sdk_path /Library/Developer/CommandLineTools/SDKs/$sdk
     if {[file exists $sdk_path]} {
         return $sdk_path
     }
